@@ -525,12 +525,11 @@ class ReportBuilder:
 
             stu_list = getattr(report, 'student_analytics', [])
             chunk_size = 25
-            top_stu_list = stu_list[:50]
-            for chunk_idx in range(0, len(top_stu_list), chunk_size):
-                chunk = top_stu_list[chunk_idx : chunk_idx + chunk_size]
+            for chunk_idx in range(0, len(stu_list), chunk_size):
+                chunk = stu_list[chunk_idx : chunk_idx + chunk_size]
                 lines += [
                     r"\newpage",
-                    r"\section{Appendix: Student Performance Analytics (Top 50 Students)}",
+                    r"\section{Appendix: Complete Student Performance Analytics}",
                     r"\begin{table}[H]",
                     r"	\centering",
                     f"	\\caption{{Performance Overview per Student (Page {chunk_idx // chunk_size + 1})}}",
@@ -548,13 +547,6 @@ class ReportBuilder:
                     r"		\bottomrule",
                     r"	\end{tabular}",
                     r"\end{table}",
-                ]
-
-            if len(stu_list) > 50:
-                lines += [
-                    r"\begin{center}",
-                    f"	\\textcolor{{medgray}}{{\\small \\textit{{Notice: Full breakdown of all {len(stu_list)} students is available via institution database and raw analytics data export.}}}}",
-                    r"\end{center}",
                 ]
 
             lines += [
