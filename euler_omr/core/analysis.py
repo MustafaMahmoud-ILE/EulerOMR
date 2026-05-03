@@ -35,6 +35,8 @@ class QuestionChoiceByVersion:
     question_idx: int
     # {version: {option: percentage}}
     version_option_pct: dict[str, dict[str, float]] = field(default_factory=dict)
+    # {version: list of correct options}
+    version_correct_keys: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -331,7 +333,10 @@ class AnalysisEngine:
         # Question choice analysis - per version
         for q_idx in range(active_questions):
             ver_pct: dict[str, dict[str, float]] = {}
+            ver_correct_keys: dict[str, list[str]] = {}
             for ver, ver_grades in sorted(by_version.items()):
+                keys = answer_key.get_version_keys(ver)
+                ver_correct_keys[ver] = sorted(list(keys.get(q_idx, set())))
                 freq: dict[str, int] = {}
                 total = 0
                 for g in ver_grades:
@@ -344,7 +349,9 @@ class AnalysisEngine:
                     pct_map[opt_key] = round(cnt / total * 100, 0) if total > 0 else 0.0
                 ver_pct[ver] = pct_map
             report.question_choices_by_version.append(QuestionChoiceByVersion(
-                question_idx=q_idx, version_option_pct=ver_pct
+                question_idx=q_idx,
+                version_option_pct=ver_pct,
+                version_correct_keys=ver_correct_keys
             ))
 
         # Fairness & ANOVA

@@ -399,15 +399,42 @@ class ReportBuilder:
                 lines.append(r"	\begin{table}[H]")
                 lines.append(r"		\centering")
                 lines.append(r"		\renewcommand{\arraystretch}{1.3}")
-                lines.append(r"		\begin{tabular}{ccccc}")
+                lines.append(r"		\begin{tabular}{l ccccc m{5.5cm}}")
                 lines.append(r"			\toprule")
                 lines.append(r"			\rowcolor{primary}")
-                lines.append(r"			\color{white}\textbf{Version} & \color{white}\textbf{A} & \color{white}\textbf{B} & \color{white}\textbf{C} & \color{white}\textbf{D} \\ \midrule")
+                lines.append(r"			\color{white}\textbf{Version} & \color{white}\textbf{A} & \color{white}\textbf{B} & \color{white}\textbf{C} & \color{white}\textbf{D} & \color{white}\textbf{Pattern} & \color{white}\textbf{Insight} \\ \midrule")
                 for i, ver in enumerate(sorted(qcv.version_option_pct.keys())):
                     bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
                     pct_map = qcv.version_option_pct[ver]
                     vals = " & ".join(f"{int(pct_map.get(o, 0))}\\%" for o in ["A", "B", "C", "D"])
-                    lines.append(f"			{bg}{ver} & {vals} \\\\")
+                    
+                    corr_keys = qcv.version_correct_keys.get(ver, [])
+                    if not corr_keys:
+                        corr_keys = ["A"]
+                    correct_pct = sum(pct_map.get(k, 0.0) for k in corr_keys)
+                    incorrect_pcts = {k: v for k, v in pct_map.items() if k not in corr_keys}
+                    if incorrect_pcts:
+                        max_inc_k = max(incorrect_pcts, key=incorrect_pcts.get)
+                        max_inc_pct = incorrect_pcts[max_inc_k]
+                        all_pcts = list(pct_map.values())
+                        pct_range = max(all_pcts) - min(all_pcts) if all_pcts else 0
+                        
+                        if max_inc_pct > correct_pct:
+                            status = "Not OK (Wrong Conc)"
+                            insight = f"Option {max_inc_k} attracted more students than correct answer."
+                        elif correct_pct <= 35.0 and pct_range <= 20.0:
+                            status = "Not OK (Scattered)"
+                            insight = "Choices are spread evenly; students were guessing."
+                        elif correct_pct - max_inc_pct <= 15.0:
+                            status = "Not OK (Rival Dist)"
+                            insight = f"Option {max_inc_k} is competing closely with correct answer."
+                        else:
+                            status = "OK"
+                            insight = "--"
+                    else:
+                        status = "OK"
+                        insight = "--"
+                    lines.append(f"			{bg}{ver} & {vals} & {status} & {insight} \\\\")
                 lines.append(r"			\bottomrule")
                 lines.append(r"		\end{tabular}")
                 lines.append(r"	\end{table}")
