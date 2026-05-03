@@ -381,6 +381,7 @@ class ProjectTab(QWidget):
             active_questions=self.sp_active_q.value(),
             active_options=self.sp_active_opt.value(),
             active_versions=self.sp_active_ver.value(),
+            num_questions=self._template_config.num_questions if self._template_config else self.sp_active_q.value(),
             scans_pdf_path=self._scans_pdf_path,
             scans_pdf_bytes=self._scans_pdf_bytes,
             parent=self,

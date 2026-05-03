@@ -19,7 +19,7 @@ from euler_omr.core.scan_reader import ScanReader
 class WizardFixerDialog(QDialog):
     def __init__(self, problematic_results: list[ScanResult],
                  active_questions: int, active_options: int,
-                 active_versions: int, scans_pdf_path=None,
+                 active_versions: int, num_questions=None, scans_pdf_path=None,
                  scans_pdf_bytes=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Wizard Fixer")
@@ -44,6 +44,7 @@ class WizardFixerDialog(QDialog):
         self._active_questions = active_questions
         self._active_options = active_options
         self._active_versions = active_versions
+        self._num_questions = num_questions if num_questions is not None else active_questions
 
         self._current_index = 0
         self._build_ui()
@@ -282,7 +283,7 @@ class WizardFixerDialog(QDialog):
                     cx_start, cx_end = rect.get("x_start", 0), rect.get("x_end", 0)
                 else:
                     import math
-                    rows_per_col = math.ceil(self._active_questions / 3)
+                    rows_per_col = math.ceil(self._num_questions / 3)
                     q_y_start = 868.5
                     q_x_starts = [204.5, 650.7, 1097.0]
                     bubble_step_px = 0.6 * (200 / 2.54)
