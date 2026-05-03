@@ -102,6 +102,10 @@ def main():
 
         padded_id = student_id.zfill(id_digits)[:id_digits]
 
+        # 3% chance for a student ID issue
+        has_id_issue = random.random() < 0.03
+        id_issue_digit = random.randint(0, id_digits - 1) if has_id_issue else -1
+
         for digit_col in range(id_digits):
             x = int(id_x_start + digit_col * bubble_step_px)
             d_char = padded_id[digit_col]
@@ -111,6 +115,19 @@ def main():
             cx = x + random.randint(-2, 2)
             cy = y + random.randint(-2, 2)
             cv2.circle(img, (cx, cy), bubble_r_px - 1, (0, 0, 0), -1)
+
+            if digit_col == id_issue_digit:
+                # Add another non-original mark with an X
+                other_vals = [v for v in range(10) if v != correct_val]
+                wrong_val = random.choice(other_vals)
+                wy = int(id_y_start + wrong_val * row_step_px)
+                wcx = x + random.randint(-2, 2)
+                wcy = wy + random.randint(-2, 2)
+
+                cv2.circle(img, (wcx, wcy), bubble_r_px - 1, (0, 0, 0), -1)
+                # Draw X in white on it
+                cv2.line(img, (wcx - 4, wcy - 4), (wcx + 4, wcy + 4), (255, 255, 255), 2)
+                cv2.line(img, (wcx + 4, wcy - 4), (wcx - 4, wcy + 4), (255, 255, 255), 2)
 
         # --- Draw Version bubble ---
         version_x_start = 176
@@ -126,6 +143,20 @@ def main():
             cx = x + random.randint(-2, 2)
             cy = version_y + random.randint(-2, 2)
             cv2.circle(img, (cx, cy), bubble_r_px - 1, (0, 0, 0), -1)
+
+            # 3% chance for version issue
+            if random.random() < 0.03:
+                other_vers = [v for v in range(active_versions) if v != correct_ver_idx]
+                if other_vers:
+                    wrong_ver = random.choice(other_vers)
+                    wx = int(version_x_start + wrong_ver * bubble_step_px)
+                    wcx = wx + random.randint(-2, 2)
+                    wcy = version_y + random.randint(-2, 2)
+
+                    cv2.circle(img, (wcx, wcy), bubble_r_px - 1, (0, 0, 0), -1)
+                    # Draw X in white
+                    cv2.line(img, (wcx - 4, wcy - 4), (wcx + 4, wcy + 4), (255, 255, 255), 2)
+                    cv2.line(img, (wcx + 4, wcy - 4), (wcx - 4, wcy + 4), (255, 255, 255), 2)
 
         # --- Draw Question bubbles ---
         rows_per_col = math.ceil(active_questions / 3)
@@ -150,8 +181,8 @@ def main():
                 correct_opt_idx = OPTION_LETTERS.index(ans)
 
             if correct_opt_idx != -1:
-                # 2% random error
-                if random.random() < 0.02:
+                # 3% random error
+                if random.random() < 0.03:
                     # Original answer
                     x = int(base_x + correct_opt_idx * bubble_step_px)
                     cx = x + random.randint(-2, 2)
