@@ -395,27 +395,35 @@ class ReportBuilder:
                 r"	\end{tabular}",
                 r"\end{table}",
                 "",
-                r"\newpage",
-                r"\section{Student-Level Master Performance Breakdown}",
-                r"\begin{table}[H]",
-                r"	\centering",
-                r"	\caption{Performance Overview per Student}",
-                r"	\renewcommand{\arraystretch}{1.3}",
-                r"	\begin{tabular}{lcccc}",
-                r"		\toprule",
-                r"		\rowcolor{primary}",
-                r"		\color{white}\textbf{Student ID} & \color{white}\textbf{Score} & \color{white}\textbf{Percentile} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Band} \\ \midrule",
             ]
 
             stu_list = getattr(report, 'student_analytics', [])
-            for i, s in enumerate(stu_list):
-                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
-                lines.append(f"		{bg}{s['student_id']} & {s['score']} & {s['percentile']}\\% & {s['z_score']} & {s['band']} \\\\")
+            chunk_size = 25
+            for chunk_idx in range(0, len(stu_list), chunk_size):
+                chunk = stu_list[chunk_idx : chunk_idx + chunk_size]
+                lines += [
+                    r"\newpage",
+                    r"\section{Student-Level Master Performance Breakdown}",
+                    r"\begin{table}[H]",
+                    r"	\centering",
+                    f"	\\caption{{Performance Overview per Student (Page {chunk_idx // chunk_size + 1})}}",
+                    r"	\renewcommand{\arraystretch}{1.25}",
+                    r"	\begin{tabular}{lcccc}",
+                    r"		\toprule",
+                    r"		\rowcolor{primary}",
+                    r"		\color{white}\textbf{Student ID} & \color{white}\textbf{Score} & \color{white}\textbf{Percentile} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Band} \\ \midrule",
+                ]
+                for i, s in enumerate(chunk):
+                    bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                    lines.append(f"		{bg}{s['student_id']} & {s['score']} & {s['percentile']}\\% & {s['z_score']} & {s['band']} \\\\")
+
+                lines += [
+                    r"		\bottomrule",
+                    r"	\end{tabular}",
+                    r"\end{table}",
+                ]
 
             lines += [
-                r"		\bottomrule",
-                r"	\end{tabular}",
-                r"\end{table}",
                 "",
                 r"\newpage",
                 r"\section{Version Analytics & Equality Evaluation}",
