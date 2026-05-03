@@ -20,13 +20,31 @@ class EulerApp(QApplication):
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
-        # Single-instance guard
-        self._shared_mem = QSharedMemory("EulerOMR_SingleInstance")
-        if self._shared_mem.attach():
+        # Single-instance guard via QLocalServer
+        from PySide6.QtNetwork import QLocalServer, QLocalSocket
+        server_name = "EulerOMR_SingleInstance_Server"
+        socket = QLocalSocket()
+        socket.connectToServer(server_name)
+        if socket.waitForConnected(500):
             self._is_running = True
         else:
-            self._shared_mem.create(1)
+            QLocalServer.removeServer(server_name)
+            self._local_server = QLocalServer()
+            self._local_server.listen(server_name)
             self._is_running = False
+
+        # If it's not already running, play the startup sound
+        if not self._is_running:
+            from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+            from PySide6.QtCore import QUrl
+            sound_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "sounds", "open.mp3")
+            if os.path.exists(sound_path):
+                self._player = QMediaPlayer()
+                self._audio_output = QAudioOutput()
+                self._player.setAudioOutput(self._audio_output)
+                self._player.setSource(QUrl.fromLocalFile(sound_path))
+                self._audio_output.setVolume(1.0)
+                self._player.play()
 
         # Global exception handler
         sys.excepthook = self._exception_hook
