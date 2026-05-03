@@ -120,6 +120,11 @@ class AnalysisReport:
     split_half_reliability: float = 0.0
     topic_analyses: list[dict] = field(default_factory=list)
     student_analytics: list[dict] = field(default_factory=list)
+    tukey_hsd_results: list[dict] = field(default_factory=list)
+    inter_item_correlation: list[list[float]] = field(default_factory=list)
+    equated_scores: dict[str, dict[str, float]] = field(default_factory=dict)
+    at_risk_students: list[dict] = field(default_factory=list)
+
 
 
 class AnalysisEngine:
@@ -200,6 +205,30 @@ class AnalysisEngine:
             return 0.0, 1.0
         except Exception:
             return 0.0, 1.0
+
+    @staticmethod
+    def _tukey_hsd(groups: list[list[float]], versions: list[str]) -> list[dict]:
+        """Runs Tukey HSD post-hoc test to identify significantly differing versions."""
+        results = []
+        if len(groups) < 2:
+            return results
+        try:
+            from scipy.stats import tukey_hsd
+            res = tukey_hsd(*groups)
+            n = len(groups)
+            for i in range(n):
+                for j in range(i + 1, n):
+                    p_val = res.pvalue[i, j]
+                    diff = res.statistic[i, j]
+                    if p_val < 0.05:
+                        results.append({
+                            "pair": f"Version {versions[i]} vs Version {versions[j]}",
+                            "diff": round(float(diff), 3),
+                            "p_value": round(float(p_val), 4)
+                        })
+        except Exception:
+            pass
+        return results
 
     @staticmethod
     def analyze(grades: list[GradeRecord], answer_key: AnswerKey, active_questions: int) -> AnalysisReport:
@@ -556,9 +585,10 @@ class AnalysisEngine:
 
             # ANOVA
             groups = [vs.scores for vs in report.version_stats if vs.scores]
+            versions = [vs.version for vs in report.version_stats if vs.scores]
             report.anova_f, report.anova_p = AnalysisEngine._anova_oneway(groups)
             report.kruskal_h, report.kruskal_p = AnalysisEngine._kruskal_wallis(groups)
-
+            
             # Outlier versions
             report.grand_mean_versions = round(statistics.mean(means), 3)
             report.std_version_means = round(AnalysisEngine._safe_stddev(means), 3) if len(means) > 1 else 0.0
@@ -572,5 +602,47 @@ class AnalysisEngine:
                 report.version_outliers.append(VersionOutlier(
                     version=vs.version, mean=vs.mean, z_score=round(z, 2), label=label
                 ))
+
+            if report.anova_p < 0.05:
+                report.tukey_hsd_results = AnalysisEngine._tukey_hsd(groups, versions)
+
+            # Score Equating (Mean Equating)
+            target_mean = report.grand_mean_versions
+            for vs in report.version_stats:
+                adjustment = target_mean - vs.mean
+                report.equated_scores[vs.version] = {
+                    "adjustment": round(adjustment, 3),
+                    "target_mean": round(target_mean, 3),
+                    "original_mean": round(vs.mean, 3)
+                }
+
+        # At-Risk Student Identification
+        pass_threshold = 0.6 * report.max_score
+        for stu in report.student_analytics:
+            if stu["score"] < pass_threshold:
+                report.at_risk_students.append(stu)
+        report.at_risk_students.sort(key=lambda x: x["score"])
+
+        # Inter-Item Correlation Matrix (first 5 questions for simplicity)
+        n_items = min(5, active_questions)
+        matrix = [[1.0] * n_items for _ in range(n_items)]
+        if len(grades) > 1 and n_items > 1:
+            for i in range(n_items):
+                scores_i = [student_item_correct[s][i] for s in range(len(grades))]
+                std_i = statistics.stdev(scores_i) if len(scores_i) > 1 else 0
+                for j in range(i + 1, n_items):
+                    scores_j = [student_item_correct[s][j] for s in range(len(grades))]
+                    std_j = statistics.stdev(scores_j) if len(scores_j) > 1 else 0
+                    if std_i > 0 and std_j > 0:
+                        mean_i = statistics.mean(scores_i)
+                        mean_j = statistics.mean(scores_j)
+                        cov = sum((scores_i[s] - mean_i) * (scores_j[s] - mean_j) for s in range(len(grades))) / (len(grades) - 1)
+                        corr = cov / (std_i * std_j)
+                        matrix[i][j] = round(corr, 3)
+                        matrix[j][i] = round(corr, 3)
+                    else:
+                        matrix[i][j] = 0.0
+                        matrix[j][i] = 0.0
+        report.inter_item_correlation = matrix
 
         return report

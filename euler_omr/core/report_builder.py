@@ -261,6 +261,39 @@ class ReportBuilder:
                 r"		\bottomrule",
                 r"	\end{tabular}",
                 r"\end{table}",
+            ]
+
+            if getattr(report, "inter_item_correlation", []):
+                n_cols = len(report.inter_item_correlation)
+                lines += [
+                    r"\vspace{0.5cm}",
+                    r"\begin{table}[H]",
+                    r"	\centering",
+                    r"	\caption{Inter-Item Correlation Matrix (First 5 Items)}",
+                    r"	\renewcommand{\arraystretch}{1.3}",
+                    r"	\begin{tabular}{c|" + "c" * n_cols + "}",
+                    r"		\toprule",
+                    r"		\rowcolor{primary}",
+                    r"		\color{white}\textbf{Item} & " + " & ".join(f"\\color{{white}}\\textbf{{Q{j+1}}}" for j in range(n_cols)) + r" \\ \midrule",
+                ]
+                for i, row in enumerate(report.inter_item_correlation):
+                    bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                    formatted_row = []
+                    for j, r_val in enumerate(row):
+                        if i == j:
+                            formatted_row.append(str(r_val))
+                        elif r_val < 0.15:
+                            formatted_row.append(f"\\textcolor{{danger}}{{\\textbf{{{r_val}}}}}")
+                        else:
+                            formatted_row.append(str(r_val))
+                    lines.append(f"		{bg}\\textbf{{Q{i+1}}} & " + " & ".join(formatted_row) + r" \\\\")
+                lines += [
+                    r"		\bottomrule",
+                    r"	\end{tabular}",
+                    r"\end{table}",
+                    r"	\begin{center}\textcolor{medgray}{\textit{*Note: Values below 0.15 are highlighted in red as they may indicate items measuring different constructs.}}\end{center}",
+                ]
+            lines += [
                 "",
                 r"\section{Descriptive Statistics}",
                 r"\begin{center}",
@@ -429,7 +462,8 @@ class ReportBuilder:
                 r"\end{tcolorbox}",
                 "",
                 r"\begin{tcolorbox}[width=0.95\textwidth, colback=white, colframe=danger, arc=4pt, boxrule=0.8pt, left=8pt, right=8pt]",
-                r"	\textbf{\color{danger}Item-Level Psychometric Actionable Recommendations:}\\",
+                r"	\textbf{\color{danger}Actionable Recommendations:}\\",
+                r"	\textbf{Item-Level Recommendations:}\\",
             ]
 
             recs_added = False
@@ -437,10 +471,33 @@ class ReportBuilder:
                 if psy.quality_class in ["Needs Review", "Poor"]:
                     recs_added = True
                     desc = "Extremely easy" if psy.p_value > 0.90 else "Highly difficult" if psy.p_value < 0.30 else "Moderate difficulty"
-                    lines.append(f"    --- \\textbf{{Q{psy.question_idx+1}}}: {desc} ($p = {psy.p_value}$), low discrimination ($D = {psy.discrimination_index}$). Review distractor functionality. \\\\")
+                    lines.append(f"    --- \\textbf{{Q{psy.question_idx+1}}}: \\textbf{{Problem:}} {desc} ($p = {psy.p_value}$) and low discrimination ($D = {psy.discrimination_index}$). \\textbf{{Affected:}} All students. \\textbf{{Action:}} Consider removing from grading or revising distractors. \\\\")
 
             if not recs_added:
-                lines.append(r"    All items performed optimally across test difficulty and discrimination bounds. \\")
+                lines.append(r"    --- All items performed optimally across test difficulty and discrimination bounds. \\")
+
+            lines.append(r"	\vspace{4pt}\textbf{Version-Level Recommendations:}\\")
+            ver_recs_added = False
+            
+            for qcv in getattr(report, 'question_choices_by_version', []):
+                for ver, pct_map in qcv.version_option_pct.items():
+                    corr_keys = qcv.version_correct_keys.get(ver, [])
+                    if not corr_keys:
+                        corr_keys = ["A"]
+                    correct_pct = sum(pct_map.get(k, 0.0) for k in corr_keys)
+                    incorrect_pcts = {k: v for k, v in pct_map.items() if k not in corr_keys}
+                    if incorrect_pcts:
+                        max_inc_k = max(incorrect_pcts, key=incorrect_pcts.get)
+                        max_inc_pct = incorrect_pcts[max_inc_k]
+                        if max_inc_pct > correct_pct:
+                            ver_recs_added = True
+                            lines.append(f"    --- \\textbf{{Q{qcv.question_idx+1} (Version {ver})}}: \\textbf{{Problem:}} Option {max_inc_k} pulled more students than the correct key. \\textbf{{Affected:}} Version {ver} students. \\textbf{{Action:}} Verify answer key and check for printing errors. \\\\")
+            if getattr(report, "anova_p", 1.0) < 0.05:
+                ver_recs_added = True
+                lines.append(r"    --- \textbf{Global Fairness}: \textbf{Problem:} Statistically significant difference between versions. \textbf{Affected:} Disadvantaged versions. \textbf{Action:} Apply score equating before releasing final grades. \\")
+                
+            if not ver_recs_added:
+                lines.append(r"    --- No critical version-specific anomalies detected. \\")
 
             lines += [
                 r"\end{tcolorbox}",
@@ -523,6 +580,33 @@ class ReportBuilder:
                 "",
             ]
 
+            if getattr(report, "at_risk_students", []):
+                at_risk_chunk_size = 25
+                at_risk_list = report.at_risk_students
+                for chunk_idx in range(0, len(at_risk_list), at_risk_chunk_size):
+                    chunk = at_risk_list[chunk_idx : chunk_idx + at_risk_chunk_size]
+                    lines += [
+                        r"\newpage",
+                        r"\section{At-Risk Student Identification}",
+                        r"\begin{table}[H]",
+                        r"	\centering",
+                        f"	\\caption{{Students Scoring Below 60\\% Threshold (Page {chunk_idx // at_risk_chunk_size + 1})}}",
+                        r"	\renewcommand{\arraystretch}{1.25}",
+                        r"	\begin{tabular}{lcccc}",
+                        r"		\toprule",
+                        r"		\rowcolor{danger}",
+                        r"		\color{white}\textbf{Student ID} & \color{white}\textbf{Score} & \color{white}\textbf{Relative Standing \%} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Performance Band} \\ \midrule",
+                    ]
+                    for i, s in enumerate(chunk):
+                        bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                        lines.append(f"		{bg}{s['student_id']} & {s['score']} & {s['percentile']}\\% & {s['z_score']} & \\textcolor{{danger}}{{\\textbf{{{s['band']}}}}} \\\\")
+
+                    lines += [
+                        r"		\bottomrule",
+                        r"	\end{tabular}",
+                        r"\end{table}",
+                    ]
+
             stu_list = getattr(report, 'student_analytics', [])
             chunk_size = 25
             for chunk_idx in range(0, len(stu_list), chunk_size):
@@ -566,6 +650,52 @@ class ReportBuilder:
                 r"		\bottomrule",
                 r"	\end{tabular}",
                 r"\end{table}",
+            ]
+
+            if getattr(report, "anova_p", 1.0) < 0.05 and getattr(report, "tukey_hsd_results", []):
+                lines += [
+                    r"\vspace{0.5cm}",
+                    r"\begin{table}[H]",
+                    r"	\centering",
+                    r"	\caption{Tukey's HSD Post-Hoc Analysis (Significant Pairwise Differences)}",
+                    r"	\renewcommand{\arraystretch}{1.3}",
+                    r"	\begin{tabular}{lllc}",
+                    r"		\toprule",
+                    r"		\rowcolor{primary}",
+                    r"		\color{white}\textbf{Pairwise Comparison} & \color{white}\textbf{Mean Difference} & \color{white}\textbf{p-value} & \color{white}\textbf{Significance} \\ \midrule",
+                ]
+                for i, res in enumerate(report.tukey_hsd_results):
+                    bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                    lines.append(f"		{bg}{res['pair']} & {res['diff']} & {res['p_value']} & \\textcolor{{danger}}{{\\textbf{{Significant}}}} \\\\")
+                lines += [
+                    r"		\bottomrule",
+                    r"	\end{tabular}",
+                    r"\end{table}",
+                ]
+
+            if getattr(report, "equated_scores", {}):
+                lines += [
+                    r"\vspace{0.5cm}",
+                    r"\begin{table}[H]",
+                    r"	\centering",
+                    r"	\caption{Recommended Score Equating Adjustments (Mean Equating)}",
+                    r"	\renewcommand{\arraystretch}{1.3}",
+                    r"	\begin{tabular}{lccc}",
+                    r"		\toprule",
+                    r"		\rowcolor{primary}",
+                    r"		\color{white}\textbf{Version} & \color{white}\textbf{Raw Mean} & \color{white}\textbf{Target Grand Mean} & \color{white}\textbf{Equating Adjustment} \\ \midrule",
+                ]
+                for i, (ver, eq) in enumerate(report.equated_scores.items()):
+                    bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                    adj_str = f"+{eq['adjustment']}" if eq['adjustment'] > 0 else f"{eq['adjustment']}"
+                    lines.append(f"		{bg}Version {ver} & {eq['original_mean']} & {eq['target_mean']} & \\textbf{{{adj_str}}} \\\\")
+                lines += [
+                    r"		\bottomrule",
+                    r"	\end{tabular}",
+                    r"\end{table}",
+                ]
+
+            lines += [
                 "",
                 r"\begin{summarybox}",
                 r"	\begin{itemize}[leftmargin=*, itemsep=4pt]",
