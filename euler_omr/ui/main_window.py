@@ -31,6 +31,26 @@ class MainWindow(QMainWindow):
         self._config = AppConfig()
         self.setAcceptDrops(True)
 
+        # --- Native Title Bar Coloring for Windows ---
+        import sys
+        if sys.platform == "win32":
+            import ctypes
+            try:
+                dwmapi = ctypes.WinDLL("dwmapi")
+                hwnd = int(self.winId())
+                # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+                dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(ctypes.c_int(1)), 4)
+                # DWMWA_CAPTION_COLOR = 35 (Windows 11)
+                # Color format: 0x00BBGGRR for #041010
+                color_bg = 0x00101004
+                dwmapi.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(ctypes.c_int(color_bg)), 4)
+                # DWMWA_TEXT_COLOR = 36
+                # Color format: 0x00BBGGRR for #f0f6f6
+                color_text = 0x00F6F6F0
+                dwmapi.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(ctypes.c_int(color_text)), 4)
+            except Exception:
+                pass
+
         # --- Central Tab Widget ---
         self.tabs = QTabWidget()
         self.tabs.setTabsClosable(True)
