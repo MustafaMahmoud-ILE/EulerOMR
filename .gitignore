@@ -44,3 +44,7 @@ logs/
 # Euler OMR specific
 *.eomrt
 *.eomrp
+
+# Experiment folder
+experiment/
+
