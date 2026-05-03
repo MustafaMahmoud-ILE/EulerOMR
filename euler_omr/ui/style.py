@@ -71,7 +71,6 @@ QTabBar::tab:hover:!selected {
 QTabBar::close-button {
     subcontrol-position: right;
     padding: 2px;
-    margin-right: 6px;
 }
 QTabBar::close-button:hover {
     background-color: #e63946;
