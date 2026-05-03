@@ -21,7 +21,7 @@ class ReportBuilder:
         _log = log_callback or (lambda m, l: None)
         tmp = tempfile.mkdtemp(prefix="euler_report_")
         try:
-            # ── Chart 1: Overall histogram ──
+            # Generate Chart 1: Grade distribution histogram
             fig, ax = plt.subplots(figsize=(8, 4))
             bins = range(0, report.max_score + 2)
             ax.hist(report.overall_scores, bins=bins, color="#117A65",
@@ -35,7 +35,7 @@ class ReportBuilder:
             fig.savefig(hist_path, dpi=150, bbox_inches="tight")
             plt.close(fig)
 
-            # ── Chart 2: Version mean comparison bar ──
+            # Generate Chart 2: Mean comparison bar
             if report.version_stats:
                 fig, ax = plt.subplots(figsize=(8, 4))
                 vers = [vs.version for vs in report.version_stats]
@@ -52,343 +52,412 @@ class ReportBuilder:
                 fig.savefig(bar_path, dpi=150, bbox_inches="tight")
                 plt.close(fig)
 
-            _log("Charts generated", "INFO")
+            # Generate Chart 3: Score distribution per version
+            version_chart_paths = []
+            if report.version_stats:
+                for vs in report.version_stats:
+                    if not vs.scores:
+                        continue
+                    fig, ax = plt.subplots(figsize=(6, 3))
+                    bins = range(0, report.max_score + 2)
+                    ax.hist(vs.scores, bins=bins, color="#1B4F72", edgecolor="#117A65", alpha=0.75, rwidth=0.85)
+                    ax.set_xlabel("Score", fontsize=10, fontweight="bold", color="#1B4F72")
+                    ax.set_ylabel("Frequency", fontsize=10, fontweight="bold", color="#1B4F72")
+                    ax.set_title(f"Score Distribution - Version {vs.version}", fontsize=11, fontweight="bold", color="#1B4F72")
+                    ax.set_xticks(range(0, report.max_score + 1))
+                    ax.grid(axis='y', linestyle='--', alpha=0.4)
+                    chart_name = f"dist_version_{vs.version}.png"
+                    chart_path = os.path.join(tmp, chart_name)
+                    fig.savefig(chart_path, dpi=150, bbox_inches="tight")
+                    plt.close(fig)
+                    version_chart_paths.append((vs.version, chart_name))
 
-            # ═══════════════════════════════════════════════════════════
-            #  Build LaTeX report
-            # ═══════════════════════════════════════════════════════════
+            _log("Charts generated successfully.", "INFO")
+
             ms = report.max_score
             pct_mean = round(report.overall_mean / ms * 100, 1) if ms > 0 else 0
+            modes_str = str(report.overall_mode)
 
-            # LaTeX Template as a raw string to ensure no f-string expansion errors
-            latex_template = r"""\documentclass[12pt, a4paper]{article}
+            lines = [
+                r"\documentclass[12pt, a4paper]{article}",
+                r"\usepackage[margin=2.5cm]{geometry}",
+                r"\usepackage{booktabs}",
+                r"\usepackage{array}",
+                r"\usepackage{xcolor}",
+                r"\usepackage{colortbl}",
+                r"\usepackage{graphicx}",
+                r"\usepackage{amsmath}",
+                r"\usepackage{hyperref}",
+                r"\usepackage{fancyhdr}",
+                r"\usepackage{titlesec}",
+                r"\usepackage{multirow}",
+                r"\usepackage{enumitem}",
+                r"\usepackage{tcolorbox}",
+                r"\usepackage{float}",
+                r"\usepackage{caption}",
+                "",
+                r"\definecolor{primary}{HTML}{1B4F72}",
+                r"\definecolor{accent}{HTML}{117A65}",
+                r"\definecolor{lightgray}{HTML}{F2F3F4}",
+                r"\definecolor{medgray}{HTML}{BDC3C7}",
+                r"\definecolor{danger}{HTML}{C0392B}",
+                r"\definecolor{warning}{HTML}{D4AC0D}",
+                r"\definecolor{success}{HTML}{1E8449}",
+                r"\definecolor{rowA}{HTML}{EBF5FB}",
+                r"\definecolor{rowB}{HTML}{FFFFFF}",
+                "",
+                r"\pagestyle{fancy}",
+                r"\fancyhf{}",
+                r"\fancyhead[L]{\small\color{primary}\textbf{Euler OMR} --- Comprehensive Psychometric Report}",
+                r"\fancyhead[R]{\small\color{medgray}Assessment Evaluation System}",
+                r"\fancyfoot[C]{\small\color{medgray}\thepage}",
+                r"\renewcommand{\headrulewidth}{0.4pt}",
+                r"\renewcommand{\footrulewidth}{0pt}",
+                "",
+                r"\titleformat{\section}{\large\bfseries\color{primary}}{\thesection.}{0.5em}{}[\titrule]",
+                r"\titleformat{\subsection}{\normalsize\bfseries\color{accent}}{\thesubsection}{0.5em}{}",
+                "",
+                r"\hypersetup{colorlinks=true, linkcolor=primary, urlcolor=accent}",
+                "",
+                r"\tcbuselibrary{skins, breakable}",
+                r"\newtcolorbox{summarybox}{",
+                r"	enhanced, colback=lightgray, colframe=primary, boxrule=1pt, arc=4pt,",
+                r"	left=8pt, right=8pt, top=6pt, bottom=6pt,",
+                r"	title={\bfseries\color{white} Summary Insight},",
+                r"	fonttitle=\bfseries, coltitle=white,",
+                r"	attach boxed title to top left={yshift=-2mm, xshift=4mm},",
+                r"	boxed title style={colback=primary, arc=3pt}",
+                r"}",
+                "",
+                r"\begin{document}",
+                "",
+                r"% Title Page",
+                r"\begin{titlepage}",
+                r"	\centering",
+                r"	\vspace*{2cm}",
+                r"	{\Huge\bfseries\color{primary} Euler OMR\par}",
+                r"	\vspace{0.4cm}",
+                r"	{\LARGE\color{accent} Statistical & Psychometric Report\par}",
+                r"	\vspace{1cm}",
+                r"	\textcolor{medgray}{\rule{0.6\textwidth}{0.6pt}}",
+                r"	\vspace{0.8cm}",
+                r"	",
+                r"	\begin{tcolorbox}[width=0.7\textwidth, colback=lightgray, colframe=medgray, arc=4pt, boxrule=0.6pt]",
+                r"		\centering",
+                r"		\begin{tabular}{rl}",
+                f"			\\textbf{{Total Students:}} & {report.total_students} \\\\",
+                f"			\\textbf{{Overall Mean:}}   & {report.overall_mean} / {ms} \\quad ({pct_mean}\\%) \\\\",
+                f"			\\textbf{{Median Score:}}   & {report.overall_median} \\\\",
+                f"			\\textbf{{Std Deviation:}}  & {report.overall_stddev} \\\\",
+                f"			\\textbf{{Score Range:}}    & {report.overall_min} -- {report.overall_max} \\\\",
+                r"		\end{tabular}",
+                r"	\end{tcolorbox}",
+                r"	\vfill",
+                r"	{\small\color{medgray} Generated by Euler OMR Evaluation System}",
+                r"\end{titlepage}",
+                "",
+                r"\section{Reliability Analysis}",
+                r"\begin{table}[H]",
+                r"	\centering",
+                r"	\caption{Reliability Coefficients Summary}",
+                r"	\renewcommand{\arraystretch}{1.3}",
+                r"	\begin{tabular}{lc}",
+                r"		\toprule",
+                r"		\rowcolor{primary}",
+                r"		\color{white}\textbf{Metric} & \color{white}\textbf{Calculated Value} \\ \midrule",
+                f"		\\rowcolor{{rowA}} Cronbach's Alpha (KR-20) & {getattr(report, 'cronbach_alpha', 0.0)} \\\\",
+                f"		\\rowcolor{{rowB}} Split-Half Reliability & {getattr(report, 'split_half_reliability', 0.0)} \\\\",
+                r"		\bottomrule",
+                r"	\end{tabular}",
+                r"\end{table}",
+                "",
+                r"\section{Descriptive Statistics}",
+                r"\begin{center}",
+                r"	\begin{tcolorbox}[width=0.7\textwidth, colback=rowA, colframe=primary, arc=4pt, boxrule=0.8pt]",
+                r"		\centering",
+                r"		\renewcommand{\arraystretch}{1.4}",
+                r"		\begin{tabular}{>{\bfseries}l r}",
+                r"			\toprule",
+                r"			\multicolumn{1}{c}{\color{primary}\textbf{Statistic}} & \multicolumn{1}{c}{\color{primary}\textbf{Value}} \\ \midrule",
+                f"			Total Students & {report.total_students} \\\\",
+                f"			Mean Score & {report.overall_mean} / {ms} \\quad ({pct_mean}\\%) \\\\",
+                f"			Median & {report.overall_median} \\\\",
+                f"			Mode & {modes_str} \\\\",
+                f"			Std Deviation & {report.overall_stddev} \\\\",
+                f"			Range & {report.overall_min} -- {report.overall_max} \\\\",
+                r"			\bottomrule",
+                r"		\end{tabular}",
+                r"	\end{tcolorbox}",
+                r"\end{center}",
+                "",
+                r"\section{Score Distributions}",
+                r"\begin{table}[H]",
+                r"	\centering",
+                r"	\caption{Score Frequency Summary}",
+                r"	\renewcommand{\arraystretch}{1.3}",
+                r"	\begin{tabular}{ccc}",
+                r"		\toprule",
+                r"		\rowcolor{primary}",
+                r"		\color{white}\textbf{Score} & \color{white}\textbf{Students} & \color{white}\textbf{Percentage} \\ \midrule",
+            ]
 
-\usepackage[margin=2.5cm]{geometry}
-\usepackage{booktabs}
-\usepackage{array}
-\usepackage{xcolor}
-\usepackage{colortbl}
-\usepackage{graphicx}
-\usepackage{amsmath}
-\usepackage{hyperref}
-\usepackage{fancyhdr}
-\usepackage{titlesec}
-\usepackage{multirow}
-\usepackage{enumitem}
-\usepackage{tcolorbox}
-\usepackage{float}
-\usepackage{caption}
+            for i, sd in enumerate(report.score_distribution):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                lines.append(f"		{bg}{sd.score} / {ms} & {sd.count} & {sd.percentage}\\% \\\\")
 
-\definecolor{primary}{HTML}{1B4F72}
-\definecolor{accent}{HTML}{117A65}
-\definecolor{lightgray}{HTML}{F2F3F4}
-\definecolor{medgray}{HTML}{BDC3C7}
-\definecolor{danger}{HTML}{C0392B}
-\definecolor{warning}{HTML}{D4AC0D}
-\definecolor{success}{HTML}{1E8449}
-\definecolor{rowA}{HTML}{EBF5FB}
-\definecolor{rowB}{HTML}{FFFFFF}
+            lines += [
+                r"		\bottomrule",
+                r"	\end{tabular}",
+                r"\end{table}",
+                "",
+                r"\begin{figure}[H]",
+                r"	\centering",
+                r"	\includegraphics[width=0.82\textwidth]{histogram.png}",
+                r"	\caption{Overall score curve distribution chart}",
+                r"\end{figure}",
+                "",
+                r"\newpage",
+                r"\section{Per-Version Performance Stats}",
+                r"\begin{table}[H]",
+                r"	\centering",
+                r"	\caption{Overall Version Stats Breakdown}",
+                r"	\renewcommand{\arraystretch}{1.35}",
+                r"	\begin{tabular}{cccccccc}",
+                r"		\toprule",
+                r"		\rowcolor{primary}",
+                r"		\color{white}\textbf{Version} &",
+                r"		\color{white}\textbf{N} &",
+                r"		\color{white}\textbf{Mean} &",
+                r"		\color{white}\textbf{\%} &",
+                r"		\color{white}\textbf{Median} &",
+                r"		\color{white}\textbf{Std Dev} &",
+                r"		\color{white}\textbf{Min} &",
+                r"		\color{white}\textbf{Max} \\ \midrule",
+            ]
 
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{\small\color{primary}\textbf{Euler OMR} --- Psychometric Evaluation Report}
-\fancyhead[R]{\small\color{medgray}Generated by Euler OMR}
-\fancyfoot[C]{\small\color{medgray}\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
-\renewcommand{\footrulewidth}{0pt}
+            for i, vs in enumerate(report.version_stats):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                v_pct = round(vs.mean / ms * 100, 1) if ms > 0 else 0
+                lines.append(f"		{bg}{vs.version} & {vs.count} & {vs.mean} & {v_pct}\\% & {vs.median} & {vs.stddev} & {vs.min_score} & {vs.max_score_val} \\\\")
 
-\titleformat{\section}{\large\bfseries\color{primary}}{\thesection.}{0.5em}{}[\titrule]
-\titleformat{\subsection}{\normalsize\bfseries\color{accent}}{\thesubsection}{0.5em}{}
+            lines += [
+                r"		\bottomrule",
+                r"	\end{tabular}",
+                r"\end{table}",
+                "",
+                r"\begin{figure}[H]",
+                r"	\centering",
+                r"	\includegraphics[width=0.82\textwidth]{version_bar.png}",
+                r"	\caption{Mean score comparison across exam versions}",
+                r"\end{figure}",
+                "",
+                r"\newpage",
+                r"\section{Individual Version Score Histograms}",
+            ]
 
-\hypersetup{
-	colorlinks=true,
-	linkcolor=primary,
-	urlcolor=accent
-}
+            for ver, chart_name in version_chart_paths:
+                lines += [
+                    r"\begin{figure}[H]",
+                    r"	\centering",
+                    f"	\\includegraphics[width=0.72\\textwidth]{{{chart_name}}}",
+                    f"	\\caption{{Score Distribution for Version {ver}}}",
+                    r"\end{figure}",
+                    "",
+                ]
 
-\tcbuselibrary{skins, breakable}
-\newtcolorbox{summarybox}{
-	enhanced,
-	colback=lightgray,
-	colframe=primary,
-	boxrule=1pt,
-	arc=4pt,
-	left=8pt, right=8pt, top=6pt, bottom=6pt,
-	title={\bfseries\color{white} Executive Summary},
-	fonttitle=\bfseries,
-	coltitle=white,
-	attach boxed title to top left={yshift=-2mm, xshift=4mm},
-	boxed title style={colback=primary, arc=3pt}
-}
+            lines += [
+                r"\newpage",
+                r"\section{Answer Choice Distribution By Question}",
+                r"\begin{table}[H]",
+                r"	\centering",
+                r"	\caption{Answer Choice Frequency Across All Students}",
+                r"	\renewcommand{\arraystretch}{1.3}",
+                r"	\begin{tabular}{ccccccc}",
+                r"		\toprule",
+                r"		\rowcolor{primary}",
+                r"		\color{white}\textbf{Q} & \color{white}\textbf{Key} & \color{white}\textbf{A} & \color{white}\textbf{B} & \color{white}\textbf{C} & \color{white}\textbf{D} & \color{white}\textbf{Blank} \\ \midrule",
+            ]
 
-\begin{document}
+            for i, qco in enumerate(report.question_choices_overall):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                freq = qco.option_frequencies
+                opts = []
+                for o in ["A", "B", "C", "D"]:
+                    c = freq.get(o, 0)
+                    p = round(c / qco.total_responses * 100, 1) if qco.total_responses > 0 else 0
+                    opts.append(f"{c} ({p}\\%)")
+                blank_cnt = freq.get("BLANK", 0)
+                blank_p = round(blank_cnt / qco.total_responses * 100, 1) if qco.total_responses > 0 else 0
+                blank_str = f"{blank_cnt} ({blank_p}\\%)" if blank_cnt > 0 else "--"
+                key_str = ", ".join(qco.correct_keys) if qco.correct_keys else "--"
+                lines.append(f"		{bg}Q{i+1} & {key_str} & " + " & ".join(opts) + f" & {blank_str} \\\\")
 
-\begin{titlepage}
-	\centering
-	\vspace*{2cm}
-	{\Huge\bfseries\color{primary} Euler OMR\par}
-	\vspace{0.4cm}
-	{\LARGE\color{accent} Assessment Analytics and \\ Psychometric Evaluation Report\par}
-	\vspace{1cm}
-	\textcolor{medgray}{\rule{0.6\textwidth}{0.6pt}}
-	\vspace{0.8cm}
-	
-	\begin{tcolorbox}[width=0.75\textwidth, colback=lightgray, colframe=medgray, arc=4pt, boxrule=0.6pt]
-		\centering
-		\begin{tabular}{rl}
-			\textbf{Total Students:} & __TOTAL_STUDENTS__ \\
-			\textbf{Overall Mean:}   & __OVERALL_MEAN__ / __MAX_SCORE__ \quad (__MEAN_PCT__\%) \\
-			\textbf{Median Score:}   & __MEDIAN__ \\
-			\textbf{Standard Deviation:} & __STD_DEV__ \\
-			\textbf{Score Range:}    & __MIN_SCORE__ -- __MAX_SCORE_VAL__ \\
-			\textbf{Cronbach's Alpha / KR-20:} & __CRONBACH_ALPHA__ \\
-			\textbf{Split-Half Reliability:} & __SPLIT_HALF__ \\
-		\end{tabular}
-	\end{tcolorbox}
-	
-	\vfill
-	{\small\color{medgray} Generated for institutional academic evaluation.}
-\end{titlepage}
+            lines += [
+                r"		\bottomrule",
+                r"	\end{tabular}",
+                r"\end{table}",
+                "",
+                r"\newpage",
+                r"\section{Advanced Item Analysis: Difficulty \& Discrimination}",
+                r"\begin{table}[H]",
+                r"	\centering",
+                r"	\caption{Complete Advanced Question Metrics}",
+                r"	\renewcommand{\arraystretch}{1.3}",
+                r"	\begin{tabular}{ccccccc}",
+                r"		\toprule",
+                r"		\rowcolor{primary}",
+                r"		\color{white}\textbf{Q} & \color{white}\textbf{Key} & \color{white}\textbf{p-value} & \color{white}\textbf{Discrimination} & \color{white}\textbf{Point-Biserial} & \color{white}\textbf{Distractor Eff.} & \color{white}\textbf{Status} \\ \midrule",
+            ]
 
-\section{Reliability Analysis}
-\begin{table}[H]
-	\centering
-	\caption{Psychometric Reliability Coefficients}
-	\renewcommand{\arraystretch}{1.35}
-	\begin{tabular}{lcl}
-		\toprule
-		\rowcolor{primary}
-		\color{white}\textbf{Metric} & \color{white}\textbf{Value} & \color{white}\textbf{Standard Interpretation} \\ \midrule
-		\rowcolor{rowA} Cronbach's Alpha & __CRONBACH_ALPHA__ & Good to Excellent ($>0.70$) \\
-		\rowcolor{rowB} KR-20 & __KR20__ & Good to Excellent ($>0.70$) \\
-		\rowcolor{rowA} Split-Half Reliability & __SPLIT_HALF__ & High correlation indicates internal consistency \\
-		\bottomrule
-	\end{tabular}
-\end{table}
-
-\section{Executive Recommendations}
-\begin{tcolorbox}[colback=lightgray, colframe=primary, arc=3pt, boxrule=0.8pt]
-	\textbf{Assessment Quality Diagnostics:}\\
-	__RECOMMENDATIONS__
-\end{tcolorbox}
-
-\section{Overall Statistics \& Score Distribution}
-\begin{center}
-	\begin{tcolorbox}[width=0.7\textwidth, colback=rowA, colframe=primary, arc=4pt, boxrule=0.8pt]
-		\centering
-		\renewcommand{\arraystretch}{1.4}
-		\begin{tabular}{>{\bfseries}l r}
-			\toprule
-			\multicolumn{1}{c}{\color{primary}\textbf{Statistic}} &
-			\multicolumn{1}{c}{\color{primary}\textbf{Value}} \\
-			\midrule
-			Total Students  & __TOTAL_STUDENTS__ \\
-			Mean            & __OVERALL_MEAN__ / __MAX_SCORE__ \quad (__MEAN_PCT__\%) \\
-			Median          & __MEDIAN__ \\
-			Std Deviation   & __STD_DEV__ \\
-			Range           & __MIN_SCORE__ -- __MAX_SCORE_VAL__ \\
-			\bottomrule
-		\end{tabular}
-	\end{tcolorbox}
-\end{center}
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.82\textwidth]{histogram.png}
-	\caption{Score distribution curve (Frequency across students)}
-\end{figure}
-
-\newpage
-\section{Advanced Item Analysis}
-\begin{table}[H]
-	\centering
-	\caption{Item performance metrics across all students}
-	\renewcommand{\arraystretch}{1.3}
-	\begin{tabular}{ccccccc}
-		\toprule
-		\rowcolor{primary}
-		\color{white}\textbf{Q} & \color{white}\textbf{Key} & \color{white}\textbf{p-value} & \color{white}\textbf{Discrimination} & \color{white}\textbf{Pt-Biserial} & \color{white}\textbf{Distractor Eff.} & \color{white}\textbf{Status} \\ \midrule
-__ITEM_PSY_ROWS__
-		\bottomrule
-	\end{tabular}
-\end{table}
-
-\begin{tcolorbox}[colback=lightgray, colframe=primary, arc=3pt, boxrule=0.8pt]
-	\textbf{Psychometrics Standard Reference:}\\
-	\textbf{p-value (Difficulty):} Proportion correct. Easy $>0.75$, Moderate $0.30 - 0.75$, Hard $<0.30$.\\
-	\textbf{Discrimination Index (D):} Difference between top and bottom 27\% groups. Excellent $\ge 0.40$, Acceptable $0.30 - 0.39$, Review required $<0.30$.\\
-	\textbf{Pt-Biserial Correlation:} Point-biserial correlation to overall score. Highly discriminating if $\ge 0.25$.
-\end{tcolorbox}
-
-\section{Topic / Learning Outcomes Analytics}
-\begin{table}[H]
-	\centering
-	\caption{Mastery and performance broken down by assessment domain}
-	\renewcommand{\arraystretch}{1.3}
-	\begin{tabular}{lclcc}
-		\toprule
-		\rowcolor{primary}
-		\color{white}\textbf{Domain ID} & \color{white}\textbf{Items Included} & \color{white}\textbf{Difficulty} & \color{white}\textbf{Discrimination} & \color{white}\textbf{Status} \\ \midrule
-__TOPIC_ROWS__
-		\bottomrule
-	\end{tabular}
-\end{table}
-
-\newpage
-\section{Student Analytics Summary}
-\begin{table}[H]
-	\centering
-	\caption{Overall individual performance ranking and bands}
-	\renewcommand{\arraystretch}{1.25}
-	\begin{tabular}{llccc}
-		\toprule
-		\rowcolor{primary}
-		\color{white}\textbf{Student ID} & \color{white}\textbf{Score} & \color{white}\textbf{Percentile} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Mastery Classification} \\ \midrule
-__STUDENT_ROWS__
-		\bottomrule
-	\end{tabular}
-\end{table}
-
-\section{Version Equivalence \& Analytics}
-\begin{table}[H]
-	\centering
-	\caption{Descriptive statistics broken down by exam version}
-	\renewcommand{\arraystretch}{1.3}
-	\begin{tabular}{cccccccc}
-		\toprule
-		\rowcolor{primary}
-		\color{white}\textbf{Version} &
-		\color{white}\textbf{N} &
-		\color{white}\textbf{Mean} &
-		\color{white}\textbf{\%} &
-		\color{white}\textbf{Median} &
-		\color{white}\textbf{Std Dev} &
-		\color{white}\textbf{Min} &
-		\color{white}\textbf{Max} \\ \midrule
-__VERSION_STATS_ROWS__
-		\bottomrule
-	\end{tabular}
-\end{table}
-
-\begin{table}[H]
-	\centering
-	\caption{Equivalence Tests across Exam Versions}
-	\renewcommand{\arraystretch}{1.35}
-	\begin{tabular}{lccc}
-		\toprule
-		\rowcolor{primary}
-		\color{white}\textbf{Test} & \color{white}\textbf{Statistic} & \color{white}\textbf{p-value} & \color{white}\textbf{Result Interpretation} \\ \midrule
-		\rowcolor{rowA} ANOVA (parametric) & $F = __ANOVA_F__$ & $__ANOVA_P__$ & __ANOVA_RESULT__ \\
-		\rowcolor{rowB} Kruskal-Wallis & $H = __KRUSKAL_H__$ & $__KRUSKAL_P__$ & __KRUSKAL_RESULT__ \\
-		\bottomrule
-	\end{tabular}
-\end{table}
-
-\begin{tcolorbox}[colback=lightgray, colframe=primary, arc=3pt, boxrule=0.8pt]
-	\textbf{Version Equivalence Interpretation:}\\
-	$p < 0.05 \implies$ Statistically significant differences detected among versions.\\
-	$p \ge 0.05 \implies$ No statistically significant differences detected among versions.
-\end{tcolorbox}
-
-\begin{summarybox}
-	\begin{itemize}[leftmargin=*, itemsep=4pt]
-		\item \textbf{Total Students:} __TOTAL_STUDENTS__
-		\item \textbf{Overall Mean:} __OVERALL_MEAN__ / __MAX_SCORE__ \quad (__MEAN_PCT__\%)
-		\item \textbf{Overall Median:} __MEDIAN__
-		\item \textbf{Cronbach's Alpha:} __CRONBACH_ALPHA__
-		\item \textbf{Split-Half Reliability:} __SPLIT_HALF__
-		\item \textbf{Version ANOVA p-value:} __ANOVA_P__
-	\end{itemize}
-\end{summarybox}
-
-\end{document}
-"""
-
-            # Dynamic Row Replacements
-            # 1. Item Psychometrics Rows
-            psy_rows = []
-            for idx, psy in enumerate(report.item_psychometrics):
-                bg = r"\rowcolor{rowA} " if idx % 2 == 0 else r"\rowcolor{rowB} "
+            for i, psy in enumerate(report.item_psychometrics):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
                 key_str = ", ".join(psy.correct_keys) if psy.correct_keys else "--"
-                # Use plain raw string replacement
-                psy_rows.append(f"{bg} Q{psy.question_idx+1} & {key_str} & {psy.p_value} & {psy.discrimination_index} & {psy.point_biserial} & {psy.distractor_efficiency}\\% & {psy.quality_class} \\\\")
-            
-            # 2. Topic Analysis Rows
-            topic_rows = []
-            for idx, t in enumerate(getattr(report, 'topic_analyses', [])):
-                bg = r"\rowcolor{rowA} " if idx % 2 == 0 else r"\rowcolor{rowB} "
-                topic_rows.append(f"{bg} {t['topic_id']} & {t['items']} & {t['mean_difficulty']} & {t['mean_discrimination']} & {t['status']} \\\\")
+                lines.append(f"		{bg}Q{psy.question_idx+1} & {key_str} & {psy.p_value} & {psy.discrimination_index} & {psy.point_biserial} & {psy.distractor_efficiency}\\% & {psy.quality_class} \\\\")
 
-            # 3. Student Analysis Rows (Top 25 for report compactness)
-            student_rows = []
+            lines += [
+                r"		\bottomrule",
+                r"	\end{tabular}",
+                r"\end{table}",
+                "",
+                r"\newpage",
+                r"\section{Detailed Answer Patterns by Version}",
+            ]
+
+            for qcv in report.question_choices_by_version:
+                q_idx = qcv.question_idx
+                lines += [
+                    f"\\subsection{{Question {q_idx + 1}}}",
+                    r"\begin{table}[H]",
+                    r"	\centering",
+                    r"	\renewcommand{\arraystretch}{1.3}",
+                    r"	\begin{tabular}{l ccccc m{5.5cm}}",
+                    r"		\toprule",
+                    r"		\rowcolor{primary}",
+                    r"		\color{white}\textbf{Version} & \color{white}\textbf{A} & \color{white}\textbf{B} & \color{white}\textbf{C} & \color{white}\textbf{D} & \color{white}\textbf{Pattern} & \color{white}\textbf{Insight} \\ \midrule",
+                ]
+                for i, ver in enumerate(sorted(qcv.version_option_pct.keys())):
+                    bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                    pct_map = qcv.version_option_pct[ver]
+                    vals = " & ".join(f"{int(pct_map.get(o, 0))}\\%" for o in ["A", "B", "C", "D"])
+                    corr_keys = qcv.version_correct_keys.get(ver, [])
+                    if not corr_keys:
+                        corr_keys = ["A"]
+                    correct_pct = sum(pct_map.get(k, 0.0) for k in corr_keys)
+                    incorrect_pcts = {k: v for k, v in pct_map.items() if k not in corr_keys}
+                    if incorrect_pcts:
+                        max_inc_k = max(incorrect_pcts, key=incorrect_pcts.get)
+                        max_inc_pct = incorrect_pcts[max_inc_k]
+                        all_pcts = list(pct_map.values())
+                        pct_range = max(all_pcts) - min(all_pcts) if all_pcts else 0
+                        
+                        if max_inc_pct > correct_pct:
+                            status = "Not OK"
+                            insight = f"Option {max_inc_k} pulled more students than correct key."
+                        elif correct_pct <= 35.0 and pct_range <= 20.0:
+                            status = "Not OK"
+                            insight = "Scattered options."
+                        elif correct_pct - max_inc_pct <= 15.0:
+                            status = "Not OK"
+                            insight = f"Option {max_inc_k} closely competing."
+                        else:
+                            status = "OK"
+                            insight = "--"
+                    else:
+                        status = "OK"
+                        insight = "--"
+                    lines.append(f"		{bg}{ver} & {vals} & {status} & {insight} \\\\")
+                lines += [
+                    r"		\bottomrule",
+                    r"	\end{tabular}",
+                    r"\end{table}",
+                    "",
+                ]
+
+            lines += [
+                r"\newpage",
+                r"\section{Topic-Based Outcomes}",
+                r"\begin{table}[H]",
+                r"	\centering",
+                r"	\caption{Learning Mastery Breakdown}",
+                r"	\renewcommand{\arraystretch}{1.3}",
+                r"	\begin{tabular}{lclcc}",
+                r"		\toprule",
+                r"		\rowcolor{primary}",
+                r"		\color{white}\textbf{Topic ID} & \color{white}\textbf{Questions} & \color{white}\textbf{Difficulty} & \color{white}\textbf{Discrimination} & \color{white}\textbf{Status} \\ \midrule",
+            ]
+
+            for i, t in enumerate(getattr(report, 'topic_analyses', [])):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                lines.append(f"		{bg}{t['topic_id']} & {t['items']} & {t['mean_difficulty']} & {t['mean_discrimination']} & {t['status']} \\\\")
+
+            lines += [
+                r"		\bottomrule",
+                r"	\end{tabular}",
+                r"\end{table}",
+                "",
+                r"\newpage",
+                r"\section{Student-Level Master Performance Breakdown}",
+                r"\begin{table}[H]",
+                r"	\centering",
+                r"	\caption{Performance Overview per Student}",
+                r"	\renewcommand{\arraystretch}{1.3}",
+                r"	\begin{tabular}{lcccc}",
+                r"		\toprule",
+                r"		\rowcolor{primary}",
+                r"		\color{white}\textbf{Student ID} & \color{white}\textbf{Score} & \color{white}\textbf{Percentile} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Band} \\ \midrule",
+            ]
+
             stu_list = getattr(report, 'student_analytics', [])
-            for idx, s in enumerate(stu_list[:25]):
-                bg = r"\rowcolor{rowA} " if idx % 2 == 0 else r"\rowcolor{rowB} "
-                student_rows.append(f"{bg} {s['student_id']} & {s['score']} & {s['percentile']}\\% & {s['z_score']} & {s['mastery']} \\\\")
+            for i, s in enumerate(stu_list):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                lines.append(f"		{bg}{s['student_id']} & {s['score']} & {s['percentile']}\\% & {s['z_score']} & {s['band']} \\\\")
 
-            # 4. Version Stats Rows
-            version_rows = []
-            for idx, vs in enumerate(report.version_stats):
-                bg = r"\rowcolor{rowA} " if idx % 2 == 0 else r"\rowcolor{rowB} "
-                pct = round(vs.mean / ms * 100, 1) if ms > 0 else 0
-                version_rows.append(f"{bg} {vs.version} & {vs.count} & {vs.mean} & {pct}\\% & {vs.median} & {vs.stddev} & {vs.min_score} & {vs.max_score_val} \\\\")
-
-            # 5. Build Recommendations Text
-            recs = []
-            # Low discrimination warning
-            has_low_d = any(psy.discrimination_index < 0.10 for psy in report.item_psychometrics)
-            if has_low_d:
-                recs.append("--- One or more items in this assessment show a low discrimination index (D < 0.10) and require review.")
-            
-            # Easy/Hard test overall skew
-            if pct_mean > 75:
-                recs.append("--- The assessment is skewed towards easy items.")
-            elif pct_mean < 45:
-                recs.append("--- The assessment is skewed towards hard items.")
-            else:
-                recs.append("--- The overall exam difficulty is within normal range.")
-
-            # Version Equivalence warning
-            if report.anova_p < 0.05:
-                recs.append("--- Version inequality detected via ANOVA. Review version balancing.")
-            else:
-                recs.append("--- Version equivalence confirmed via ANOVA.")
-
-            recommendations_str = " \\\\\n".join(recs)
-
-            # Perform string replacements on the template
-            latex = latex_template
-            latex = latex.replace("__TOTAL_STUDENTS__", str(report.total_students))
-            latex = latex.replace("__MAX_SCORE__", str(ms))
-            latex = latex.replace("__OVERALL_MEAN__", str(report.overall_mean))
-            latex = latex.replace("__MEAN_PCT__", str(pct_mean))
-            latex = latex.replace("__MEDIAN__", str(report.overall_median))
-            latex = latex.replace("__STD_DEV__", str(report.overall_stddev))
-            latex = latex.replace("__MIN_SCORE__", str(report.overall_min))
-            latex = latex.replace("__MAX_SCORE_VAL__", str(report.overall_max))
-            latex = latex.replace("__CRONBACH_ALPHA__", str(getattr(report, 'cronbach_alpha', 0.0)))
-            latex = latex.replace("__KR20__", str(getattr(report, 'kr20', 0.0)))
-            latex = latex.replace("__SPLIT_HALF__", str(getattr(report, 'split_half_reliability', 0.0)))
-            latex = latex.replace("__RECOMMENDATIONS__", recommendations_str)
-            latex = latex.replace("__ITEM_PSY_ROWS__", "\n".join(psy_rows))
-            latex = latex.replace("__TOPIC_ROWS__", "\n".join(topic_rows))
-            latex = latex.replace("__STUDENT_ROWS__", "\n".join(student_rows))
-            latex = latex.replace("__VERSION_STATS_ROWS__", "\n".join(version_rows))
-            latex = latex.replace("__ANOVA_F__", str(round(report.anova_f, 3)))
-            latex = latex.replace("__ANOVA_P__", str(round(report.anova_p, 3)))
-            latex = latex.replace("__ANOVA_RESULT__", r"\textcolor{danger}{\textbf{Significant diff}}" if report.anova_p < 0.05 else r"\textcolor{success}{\textbf{No sig diff}}")
-            latex = latex.replace("__KRUSKAL_H__", str(round(report.kruskal_h, 3)))
-            latex = latex.replace("__KRUSKAL_P__", str(round(report.kruskal_p, 3)))
-            latex = latex.replace("__KRUSKAL_RESULT__", r"\textcolor{danger}{\textbf{Significant diff}}" if report.kruskal_p < 0.05 else r"\textcolor{success}{\textbf{No sig diff}}")
+            lines += [
+                r"		\bottomrule",
+                r"	\end{tabular}",
+                r"\end{table}",
+                "",
+                r"\newpage",
+                r"\section{Version Analytics & Equality Evaluation}",
+                r"\begin{table}[H]",
+                r"	\centering",
+                r"	\caption{Equivalence Testing Summary}",
+                r"	\renewcommand{\arraystretch}{1.35}",
+                r"	\begin{tabular}{lccc}",
+                r"		\toprule",
+                r"		\rowcolor{primary}",
+                r"		\color{white}\textbf{Test} & \color{white}\textbf{Statistic} & \color{white}\textbf{p-value} & \color{white}\textbf{Equivalence Verdict} \\ \midrule",
+                f"		\\rowcolor{{rowA}} ANOVA & $F = {round(report.anova_f, 3)}$ & ${round(report.anova_p, 3)}$ & " + (r"\textcolor{danger}{\textbf{Significant diff}}" if report.anova_p < 0.05 else r"\textcolor{success}{\textbf{No sig diff detected}}") + r" \\",
+                f"		\\rowcolor{{rowB}} Kruskal-Wallis & $H = {round(report.kruskal_h, 3)}$ & ${round(report.kruskal_p, 3)}$ & " + (r"\textcolor{danger}{\textbf{Significant diff}}" if report.kruskal_p < 0.05 else r"\textcolor{success}{\textbf{No sig diff detected}}") + r" \\",
+                r"		\bottomrule",
+                r"	\end{tabular}",
+                r"\end{table}",
+                "",
+                r"\begin{summarybox}",
+                r"	\begin{itemize}[leftmargin=*, itemsep=4pt]",
+                f"		\\item \\textbf{{Total Students:}} {report.total_students}",
+                f"		\\item \\textbf{{Overall Mean:}} {report.overall_mean} / {ms} \\quad ({pct_mean}\\%)",
+                f"		\\item \\textbf{{Overall Median:}} {report.overall_median}",
+                f"		\\item \\textbf{{Cronbach's Alpha:}} {getattr(report, 'cronbach_alpha', 0.0)}",
+                f"		\\item \\textbf{{ANOVA p-value:}} {report.anova_p}",
+                r"	\end{itemize}",
+                r"\end{summarybox}",
+                "",
+                r"\vfill",
+                r"\begin{center}",
+                r"	\textcolor{medgray}{\small\rule{0.4\textwidth}{0.4pt} \\[4pt] End of Detailed Evaluation Report}",
+                r"\end{center}",
+                "",
+                r"\end{document}",
+            ]
 
             tex_path = os.path.join(tmp, "report.tex")
             with open(tex_path, "w", encoding="utf-8") as f:
-                f.write(latex)
+                f.write("\n".join(lines))
 
             pdflatex = TemplateCompiler.find_pdflatex()
             if pdflatex:
                 import subprocess
-                # Run pdflatex twice for table of contents / correct page numbering
                 subprocess.run([pdflatex, "-interaction=nonstopmode", "report.tex"], cwd=tmp, capture_output=True)
                 subprocess.run([pdflatex, "-interaction=nonstopmode", "report.tex"], cwd=tmp, capture_output=True)
                 pdf_src = os.path.join(tmp, "report.pdf")
