@@ -410,12 +410,19 @@ class AnalysisEngine:
 
         # ── 4. KR-20 & Cronbach's Alpha ──
         k = active_questions
-        p_vals = [ip.p_value for ip in report.item_psychometrics]
-        sum_pq = sum(p * (1.0 - p) for p in p_vals)
-        var_total = report.overall_stddev ** 2
+        total_scores = [g.score for g in grades]
+        if k > 1 and len(total_scores) > 1:
+            var_total = statistics.variance(total_scores)
+            sum_item_vars = 0.0
+            for q_idx in range(k):
+                binary_item_scores = [student_item_correct[s_idx][q_idx] for s_idx in range(len(grades))]
+                if len(binary_item_scores) > 1:
+                    sum_item_vars += statistics.variance(binary_item_scores)
 
-        if k > 1 and var_total > 0:
-            kr20 = (k / (k - 1)) * (1.0 - sum_pq / var_total)
+            if var_total > 0:
+                kr20 = (k / (k - 1)) * (1.0 - sum_item_vars / var_total)
+            else:
+                kr20 = 0.0
         else:
             kr20 = 0.0
 

@@ -373,6 +373,29 @@ class ReportBuilder:
                 r"	}",
                 r"\end{table}",
                 "",
+                r"\begin{tcolorbox}[width=0.95\textwidth, colback=lightgray, colframe=primary, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
+                r"	\textbf{Psychometrics Standard Threshold Interpretation Reference:}\\",
+                r"	\textbf{Difficulty (p-value):} Very Easy $>0.90$, Easy $0.70-0.90$, Moderate $0.30-0.70$, Difficult $<0.30$.\\",
+                r"	\textbf{Discrimination (D):} Excellent $\ge 0.40$, Good $0.30-0.39$, Acceptable $0.20-0.29$, Weak/Poor $<0.20$.",
+                r"\end{tcolorbox}",
+                "",
+                r"\begin{tcolorbox}[width=0.95\textwidth, colback=white, colframe=danger, arc=4pt, boxrule=0.8pt, left=8pt, right=8pt]",
+                r"	\textbf{\color{danger}Item-Level Psychometric Actionable Recommendations:}\\",
+            ]
+
+            recs_added = False
+            for psy in report.item_psychometrics:
+                if psy.quality_class in ["Needs Review", "Poor"]:
+                    recs_added = True
+                    desc = "Extremely easy" if psy.p_value > 0.90 else "Highly difficult" if psy.p_value < 0.30 else "Moderate difficulty"
+                    lines.append(f"    --- \\textbf{{Q{psy.question_idx+1}}}: {desc} ($p = {psy.p_value}$), low discrimination ($D = {psy.discrimination_index}$). Review distractor functionality. \\\\")
+
+            if not recs_added:
+                lines.append(r"    All items performed optimally across test difficulty and discrimination bounds. \\")
+
+            lines += [
+                r"\end{tcolorbox}",
+                "",
                 r"\newpage",
                 r"\section{Detailed Answer Patterns by Version}",
             ]
@@ -453,11 +476,12 @@ class ReportBuilder:
 
             stu_list = getattr(report, 'student_analytics', [])
             chunk_size = 25
-            for chunk_idx in range(0, len(stu_list), chunk_size):
-                chunk = stu_list[chunk_idx : chunk_idx + chunk_size]
+            top_stu_list = stu_list[:50]
+            for chunk_idx in range(0, len(top_stu_list), chunk_size):
+                chunk = top_stu_list[chunk_idx : chunk_idx + chunk_size]
                 lines += [
                     r"\newpage",
-                    r"\section{Student-Level Master Performance Breakdown}",
+                    r"\section{Appendix: Student Performance Analytics (Top 50 Students)}",
                     r"\begin{table}[H]",
                     r"	\centering",
                     f"	\\caption{{Performance Overview per Student (Page {chunk_idx // chunk_size + 1})}}",
@@ -465,7 +489,7 @@ class ReportBuilder:
                     r"	\begin{tabular}{lcccc}",
                     r"		\toprule",
                     r"		\rowcolor{primary}",
-                    r"		\color{white}\textbf{Student ID} & \color{white}\textbf{Score} & \color{white}\textbf{Percentile} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Band} \\ \midrule",
+                    r"		\color{white}\textbf{Student ID} & \color{white}\textbf{Score} & \color{white}\textbf{Relative Standing \% (PR)} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Band} \\ \midrule",
                 ]
                 for i, s in enumerate(chunk):
                     bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
@@ -475,6 +499,13 @@ class ReportBuilder:
                     r"		\bottomrule",
                     r"	\end{tabular}",
                     r"\end{table}",
+                ]
+
+            if len(stu_list) > 50:
+                lines += [
+                    r"\begin{center}",
+                    f"	\\textcolor{{medgray}}{{\\small \\textit{{Notice: Full breakdown of all {len(stu_list)} students is available via institution database and raw analytics data export.}}}}",
+                    r"\end{center}",
                 ]
 
             lines += [
