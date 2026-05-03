@@ -19,6 +19,8 @@ class ClickableLabel(QLabel):
         self.setObjectName("linked_label")
 
     def mousePressEvent(self, ev):
+        from euler_omr.core.sound_manager import SoundManager
+        SoundManager.play_click()
         self.clicked.emit()
         super().mousePressEvent(ev)
 
