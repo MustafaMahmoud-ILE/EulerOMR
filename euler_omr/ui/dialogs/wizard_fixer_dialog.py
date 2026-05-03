@@ -274,21 +274,31 @@ class WizardFixerDialog(QDialog):
             q_layout.addWidget(cmb)
             self._question_combos.append(cmb)
 
-            # Show crop for this question if it exists in the regions dictionary
-            if page_img is not None and str(q_idx) in r.crop_regions:
-                rect = r.crop_regions[str(q_idx)]
-                cy_start, cy_end = rect.get("y_start", 0), rect.get("y_end", 0)
-                cx_start, cx_end = rect.get("x_start", 0), rect.get("x_end", 0)
-                if cy_end > cy_start and cx_end > cx_start:
-                    q_crop = page_img[cy_start:cy_end, cx_start:cx_end]
-                    lbl_q_crop = QLabel()
-                    lbl_q_crop.setPixmap(self._np_to_pixmap(q_crop))
-                    lbl_q_crop.setStyleSheet("border: none; background: transparent;")
-                    q_layout.addWidget(lbl_q_crop)
-            elif page_img is not None and q_idx in r.crop_regions:
-                rect = r.crop_regions[q_idx]
-                cy_start, cy_end = rect.get("y_start", 0), rect.get("y_end", 0)
-                cx_start, cx_end = rect.get("x_start", 0), rect.get("x_end", 0)
+            # Show crop for this question
+            if page_img is not None:
+                if str(q_idx) in r.crop_regions or q_idx in r.crop_regions:
+                    rect = r.crop_regions.get(str(q_idx)) or r.crop_regions.get(q_idx)
+                    cy_start, cy_end = rect.get("y_start", 0), rect.get("y_end", 0)
+                    cx_start, cx_end = rect.get("x_start", 0), rect.get("x_end", 0)
+                else:
+                    import math
+                    rows_per_col = math.ceil(self._active_questions / 3)
+                    q_y_start = 868.5
+                    q_x_starts = [204.5, 650.7, 1097.0]
+                    bubble_step_px = 0.6 * (200 / 2.54)
+                    
+                    col_idx = q_idx // rows_per_col
+                    row_idx = q_idx % rows_per_col
+                    if col_idx < len(q_x_starts):
+                        base_x = q_x_starts[col_idx]
+                        y = int(q_y_start + row_idx * 39.37)
+                        cx_start = int(max(0, base_x - 35))
+                        cx_end = int(min(w, base_x + self._active_options * bubble_step_px + 15))
+                        cy_start = int(max(0, y - 22))
+                        cy_end = int(min(h, y + 22))
+                    else:
+                        cx_start, cx_end, cy_start, cy_end = 0, 0, 0, 0
+                
                 if cy_end > cy_start and cx_end > cx_start:
                     q_crop = page_img[cy_start:cy_end, cx_start:cx_end]
                     lbl_q_crop = QLabel()
