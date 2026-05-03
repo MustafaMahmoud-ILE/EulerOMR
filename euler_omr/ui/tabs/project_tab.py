@@ -162,6 +162,11 @@ class ProjectTab(QWidget):
         self.btn_manage_keys.clicked.connect(self._manage_keys)
         gl.addWidget(self.btn_manage_keys)
 
+        self.btn_wizard_fixer = QPushButton("Wizard Fixer")
+        self.btn_wizard_fixer.setEnabled(False)
+        self.btn_wizard_fixer.clicked.connect(self._open_wizard_fixer)
+        gl.addWidget(self.btn_wizard_fixer)
+
         self.chk_analysis = QCheckBox("Run Analysis")
         gl.addWidget(self.chk_analysis)
 
@@ -343,10 +348,36 @@ class ProjectTab(QWidget):
         self.lbl_issues.setText(f"Issues: {issues}")
         if issues > 0:
             self.lbl_issues.setObjectName("error_label")
+            self.btn_wizard_fixer.setEnabled(True)
         else:
             self.lbl_issues.setObjectName("success_label")
+            self.btn_wizard_fixer.setEnabled(False)
         self.lbl_issues.setStyleSheet("")  # Force re-apply
         self._update_grading_button()
+
+    def _open_wizard_fixer(self):
+        problematic = [r for r in self._scan_results if r.state == PageState.NEEDS_REVIEW]
+        if not problematic:
+            return
+        from euler_omr.ui.dialogs.wizard_fixer_dialog import WizardFixerDialog
+        dlg = WizardFixerDialog(
+            problematic_results=problematic,
+            active_questions=self.sp_active_q.value(),
+            active_options=self.sp_active_opt.value(),
+            active_versions=self.sp_active_ver.value(),
+            parent=self,
+        )
+        if dlg.exec():
+            results = dlg.get_results()
+            for updated in results:
+                for idx, orig in enumerate(self._scan_results):
+                    if orig.page_no == updated.page_no:
+                        self._scan_results[idx] = updated
+                        break
+            self.table_model.set_results(self._scan_results)
+            self._update_summary()
+            self._mark_dirty()
+
 
     def _manage_keys(self):
         from euler_omr.ui.dialogs.answer_key_dialog import AnswerKeyDialog
