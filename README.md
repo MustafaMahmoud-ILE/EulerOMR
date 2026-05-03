@@ -1,39 +1,64 @@
-# Euler OMR
+<div align="center">
+  <img src="icon.png" alt="Euler OMR Logo" width="150" />
+  <h1>Euler OMR</h1>
+  <p><strong>A Production-Grade Psychometric Evaluation and Optical Mark Recognition Engine</strong></p>
+  
+  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+  [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+  [![PySide6](https://img.shields.io/badge/PySide6-GUI-green.svg)](https://pypi.org/project/PySide6/)
+  [![Release](https://img.shields.io/github/v/release/MustafaMahmoud-ILE/EulerOMR)](https://github.com/MustafaMahmoud-ILE/EulerOMR/releases)
+</div>
 
-A production-grade desktop application for designing OMR (Optical Mark Recognition) templates, scanning and marking student answer sheets, and running statistical analysis on grading results.
+<hr/>
 
-![Euler OMR](icon.png)
+Euler OMR is a highly rigorous, academically compliant desktop application designed for institutions. It bridges the gap between basic grading and **professional psychometric analytics**. 
 
-## Screenshots
+Design precise OMR templates, accurately scan and read student answer sheets, resolve ambiguities effortlessly, and instantly generate publication-ready academic assessment reports.
 
-### Welcome Screen
-![Welcome](assets/screenshots/welcome.png)
+## 🚀 Key Features
 
-### Template Designer
-![Template Designer](assets/screenshots/template.png)
+### 📐 Academic Template Designer
+- **Dynamic Configuration:** Design OMR sheets with customizable ID lengths, multiple exam versions, and flexible question/option configurations.
+- **LaTeX Compilation:** Instantly compile publication-ready PDF templates utilizing `pdflatex`.
 
-### Project Manager
-![Project](assets/screenshots/project.png)
+### 📠 Robust Scan Processing
+- **Automated Corner Detection:** Utilizes OpenCV algorithms to automatically align and deskew scanned PDFs.
+- **Intelligent Bubble Analysis:** Evaluates student ID, exam version, and selected answers through threshold-based pixel density analysis.
+- **Ambiguity Resolution:** A dedicated, color-coded Review Dashboard allows operators to manually resolve double-marked or faintly erased bubbles with real-time visual crops.
 
-### Review Issues
-![Review Issues](assets/screenshots/review_issues.png)
+### 📊 Institutional Psychometric Analytics Engine
+- **Reliability Metrics:** Mathematically rigorous evaluation using Cronbach's Alpha, KR-20, and Split-Half Reliability calculations to ensure exam consistency.
+- **Advanced Item Analysis:** Automated calculation of p-values (Difficulty), Point-Biserial Correlations, Discrimination Indices (D), and Distractor Efficiency.
+- **Version Equivalence:** Statistically evaluates the fairness between different exam versions using ANOVA or Kruskal-Wallis tests.
+- **Executive Dashboard:** Generates a comprehensive, multi-page LaTeX PDF report complete with severity classifications, actionable pedagogical insights, and top-student appendices.
 
-### Manage Answer Keys
-![Answer Keys](assets/screenshots/manage_answer_keys.png)
+---
 
-## Features
+## 📸 Interface Previews
 
-- **Template Designer** — Design OMR answer sheets with configurable ID digits, versions, questions, and options. Compile to PDF via LaTeX.
-- **Scan Reader** — Import scanned PDFs, automatically detect corner marks, read student IDs, versions, and answers via bubble fill analysis.
-- **Issue Review** — Color-coded scan results table with per-field review dialog for resolving ambiguous reads.
-- **Answer Key Management** — Tabbed dialog for entering correct answers per version with multi-select support.
-- **Automated Grading** — Apply answer keys to scan results and export grades to XLSX.
-- **Statistical Analysis** — Mean, median, mode, standard deviation per version. Per-question difficulty classification. Version fairness comparison.
-- **Analysis Report** — Auto-generated PDF report with charts (histograms, boxplots, bar charts).
+| Welcome Dashboard | Template Designer |
+|:---:|:---:|
+| ![Welcome](assets/screenshots/welcome.png) | ![Template Designer](assets/screenshots/template.png) |
 
-## Quick Start
+| Automated Grading & Review | Statistical Reports |
+|:---:|:---:|
+| ![Review Issues](assets/screenshots/review_issues.png) | ![Answer Keys](assets/screenshots/manage_answer_keys.png) |
 
+---
+
+## 💻 Quick Start & Installation
+
+### Option 1: Standalone Release (Recommended for Windows)
+Download the latest production release from the [Releases](https://github.com/MustafaMahmoud-ILE/EulerOMR/releases) page. The application comes fully pre-packaged with all dependencies—just extract and run `EulerOMR.exe`.
+
+*Note: You must have a LaTeX distribution (like TinyTeX or MiKTeX) installed on your system if you wish to generate new templates or PDF reports.*
+
+### Option 2: Build from Source
 ```bash
+# Clone the repository
+git clone https://github.com/MustafaMahmoud-ILE/EulerOMR.git
+cd EulerOMR
+
 # Install dependencies
 pip install -r requirements.txt
 
@@ -41,33 +66,20 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Requirements
-
-- Python 3.11+
-- PySide6 6.7+
-- pdflatex (TinyTeX recommended for compilation)
-
-## Project Structure
-
+## 🏗️ Building for Production
+You can compile your own standalone executable using the included automated build script:
+```bash
+python scripts/build_dist.py
 ```
-euler_omr/          # Main package
-  core/             # Template compiler, scan reader, grader, analysis, report builder, XLSX exporter
-  models/           # Data models (TemplateConfig, ProjectConfig, ScanResult, AnswerKey)
-  file_io/          # .eomrt and .eomrp file handlers
-  workers/          # QRunnable workers for background tasks
-  ui/               # UI layer
-    widgets/        # Log panel, progress overlay, image preview, bubble crop view
-    tabs/           # Welcome, Template, Project tabs
-    dialogs/        # Answer key, review page, TinyTeX install, unsaved changes
-assets/             # Logo, fonts, icons
-tests/              # Unit tests
-```
+This will generate a `.zip` artifact inside the `dist/` folder containing the optimized `--onedir` PyInstaller build.
 
-## File Formats
+---
 
-- **`.eomrt`** — Euler OMR Template: base64-packed JSON bundle containing template config, compiled PDF, and logo.
-- **`.eomrp`** — Euler OMR Project: base64-packed JSON bundle containing project config, embedded template, scans, scan results, and answer keys.
+## 📂 System Architecture & Formats
 
-## License
+Euler OMR utilizes a clean, stateless configuration approach through embedded base64 architectures:
+- **`.eomrt` (Euler OMR Template):** A self-contained JSON bundle holding the template configuration, the compiled LaTeX PDF, and embedded institutional logos.
+- **`.eomrp` (Euler OMR Project):** A comprehensive project envelope containing the embedded template, imported scans, read results, answer keys, and psychometric profiles.
 
-MIT
+## 📄 License
+This project is open-source and licensed under the **MIT License**.
