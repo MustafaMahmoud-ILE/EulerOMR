@@ -505,6 +505,7 @@ class AnalysisEngine:
 
             report.student_analytics.append({
                 "student_id": g.student_id,
+                "version": g.version,
                 "score": g.score,
                 "percentile": round(percentile, 1),
                 "z_score": round(z, 2),

@@ -592,14 +592,14 @@ class ReportBuilder:
                         r"	\centering",
                         f"	\\caption{{Students Scoring Below 60\\% Threshold (Page {chunk_idx // at_risk_chunk_size + 1})}}",
                         r"	\renewcommand{\arraystretch}{1.25}",
-                        r"	\begin{tabular}{lcccc}",
+                        r"	\begin{tabular}{lccccc}",
                         r"		\toprule",
                         r"		\rowcolor{danger}",
-                        r"		\color{white}\textbf{Student ID} & \color{white}\textbf{Score} & \color{white}\textbf{Relative Standing \%} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Performance Band} \\ \midrule",
+                        r"		\color{white}\textbf{Student ID} & \color{white}\textbf{Version} & \color{white}\textbf{Score} & \color{white}\textbf{Relative Standing \%} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Performance Band} \\ \midrule",
                     ]
                     for i, s in enumerate(chunk):
                         bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
-                        lines.append(f"		{bg}{s['student_id']} & {s['score']} & {s['percentile']}\\% & {s['z_score']} & \\textcolor{{danger}}{{\\textbf{{{s['band']}}}}} \\\\")
+                        lines.append(f"		{bg}{s['student_id']} & {s.get('version', '--')} & {s['score']} & {s['percentile']}\\% & {s['z_score']} & \\textcolor{{danger}}{{\\textbf{{{s['band']}}}}} \\\\")
 
                     lines += [
                         r"		\bottomrule",
@@ -618,14 +618,14 @@ class ReportBuilder:
                     r"	\centering",
                     f"	\\caption{{Performance Overview per Student (Page {chunk_idx // chunk_size + 1})}}",
                     r"	\renewcommand{\arraystretch}{1.25}",
-                    r"	\begin{tabular}{lcccc}",
+                    r"	\begin{tabular}{lccccc}",
                     r"		\toprule",
                     r"		\rowcolor{primary}",
-                    r"		\color{white}\textbf{Student ID} & \color{white}\textbf{Score} & \color{white}\textbf{Relative Standing \% (PR)} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Band} \\ \midrule",
+                    r"		\color{white}\textbf{Student ID} & \color{white}\textbf{Version} & \color{white}\textbf{Score} & \color{white}\textbf{Relative Standing \% (PR)} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Band} \\ \midrule",
                 ]
                 for i, s in enumerate(chunk):
                     bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
-                    lines.append(f"		{bg}{s['student_id']} & {s['score']} & {s['percentile']}\\% & {s['z_score']} & {s['band']} \\\\")
+                    lines.append(f"		{bg}{s['student_id']} & {s.get('version', '--')} & {s['score']} & {s['percentile']}\\% & {s['z_score']} & {s['band']} \\\\")
 
                 lines += [
                     r"		\bottomrule",
