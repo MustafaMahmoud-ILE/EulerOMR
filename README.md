@@ -40,7 +40,7 @@ Design precise OMR templates, accurately scan and read student answer sheets, re
 |:---:|:---:|
 | ![Welcome](assets/screenshots/welcome.png) | ![Template Designer](assets/screenshots/template.png) |
 
-| Automated Grading & Review | Statistical Reports |
+| Automated Grading & Review | Answer Key Management |
 |:---:|:---:|
 | ![Review Issues](assets/screenshots/review_issues.png) | ![Answer Keys](assets/screenshots/manage_answer_keys.png) |
 
