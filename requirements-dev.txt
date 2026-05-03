@@ -1,0 +1,5 @@
+pytest>=8.0
+pytest-qt>=4.4
+black>=24.0
+ruff>=0.4
+mypy>=1.10

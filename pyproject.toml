@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "euler-omr"
+version = "1.0.0"
+description = "A production-grade desktop application for designing OMR templates, scanning and marking student answer sheets, and running statistical analysis on grading results."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Mustafa Mahmoud", email = "mustafa.mahmoud@eui.edu.eg"},
+]
+
+dependencies = [
+    "PySide6>=6.7",
+    "pypdfium2>=4.30",
+    "opencv-python-headless>=4.9",
+    "numpy>=1.26",
+    "Pillow>=10.3",
+    "openpyxl>=3.1",
+    "matplotlib>=3.8",
+    "scipy>=1.13",
+    "structlog>=24.1",
+]
+
+[project.scripts]
+euler-omr = "main:main"
+
+[tool.setuptools.packages.find]
+include = ["euler_omr*"]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
