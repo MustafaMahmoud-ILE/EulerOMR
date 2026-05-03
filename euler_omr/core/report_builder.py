@@ -162,11 +162,30 @@ class ReportBuilder:
                 ver_eq = "Statistically significant difference exists between versions."
                 ver_col = r"\textcolor{danger}{\textbf{Significant diff}}"
 
+            pattern_flag_count = 0
+            for qcv in getattr(report, 'question_choices_by_version', []):
+                for ver in qcv.version_option_pct.keys():
+                    pct_map = qcv.version_option_pct[ver]
+                    corr_keys = qcv.version_correct_keys.get(ver, [])
+                    if not corr_keys:
+                        corr_keys = ["A"]
+                    correct_pct = sum(pct_map.get(k, 0.0) for k in corr_keys)
+                    incorrect_pcts = {k: v for k, v in pct_map.items() if k not in corr_keys}
+                    if incorrect_pcts:
+                        max_inc_k = max(incorrect_pcts, key=incorrect_pcts.get)
+                        max_inc_pct = incorrect_pcts[max_inc_k]
+                        all_pcts = list(pct_map.values())
+                        pct_range = max(all_pcts) - min(all_pcts) if all_pcts else 0
+                        if max_inc_pct > correct_pct or (correct_pct <= 35.0 and pct_range <= 20.0):
+                            pattern_flag_count += 1
+
             if report.item_psychometrics:
                 easiest_item = max(report.item_psychometrics, key=lambda x: x.p_value)
                 hardest_item = min(report.item_psychometrics, key=lambda x: x.p_value)
                 best_disc = max(report.item_psychometrics, key=lambda x: x.discrimination_index)
-                flagged_count = sum(1 for x in report.item_psychometrics if x.quality_class in ["Needs Review", "Poor"])
+                base_flagged_count = sum(1 for x in report.item_psychometrics if x.quality_class in ["Needs Review", "Poor"])
+                flagged_count = base_flagged_count + pattern_flag_count
+                
                 flag_str = r"\textcolor{danger}{\textbf{" + str(flagged_count) + "}}" if flagged_count > 0 else r"\textcolor{success}{\textbf{0}}"
                 hardest_str = f"Q{hardest_item.question_idx+1} ($p={hardest_item.p_value}$)"
                 easiest_str = f"Q{easiest_item.question_idx+1} ($p={easiest_item.p_value}$)"
@@ -176,13 +195,13 @@ class ReportBuilder:
                 hardest_str = "--"
                 easiest_str = "--"
                 best_d_str = "--"
-                flagged_count = 0
+                flagged_count = pattern_flag_count
 
             rec_actions = [f"       --- Test reliability is classified as \\textbf{{{alpha_class}}}."]
             if alpha < 0.70:
                 rec_actions.append(r"       --- \textcolor{danger}{\textbf{Critical Warning:}} Test length or item quality is insufficient for reliable institutional grading.")
             if flagged_count > 0:
-                rec_actions.append(f"       --- \\textcolor{{warning}}{{\\textbf{{Action Required:}}}} Review {flagged_count} flagged item(s) to improve assessment quality.")
+                rec_actions.append(f"       --- \\textcolor{{warning}}{{\\textbf{{Action Required:}}}} Review {flagged_count} flagged anomaly(s) (including poor psychometrics and critical pattern distractors) to improve assessment quality.")
             rec_actions.append(f"       --- {ver_eq}")
 
             lines += [
@@ -398,7 +417,8 @@ class ReportBuilder:
                 r"\begin{tcolorbox}[width=0.95\textwidth, colback=lightgray, colframe=primary, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
                 r"	\textbf{Psychometrics Standard Threshold Interpretation Reference:}\\",
                 r"	\textbf{Difficulty (p-value):} Very Easy $>0.90$, Easy $0.70-0.90$, Moderate $0.30-0.70$, Difficult $<0.30$.\\",
-                r"	\textbf{Discrimination (D):} Excellent $\ge 0.40$, Good $0.30-0.39$, Acceptable $0.20-0.29$, Weak/Poor $<0.20$.",
+                r"	\textbf{Discrimination (D):} Excellent $\ge 0.40$, Good $0.30-0.39$, Acceptable $0.20-0.29$, Weak/Poor $<0.20$.\\",
+                r"	\textcolor{medgray}{\textit{*Note: $0\%$ Distractor Efficiency on items with Excellent/Good Discrimination simply indicates strong mastery; no distractor was necessary to trick top-performing students.}}",
                 r"\end{tcolorbox}",
                 "",
                 r"\begin{tcolorbox}[width=0.95\textwidth, colback=white, colframe=danger, arc=4pt, boxrule=0.8pt, left=8pt, right=8pt]",
