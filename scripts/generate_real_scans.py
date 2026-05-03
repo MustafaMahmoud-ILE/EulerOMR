@@ -95,12 +95,7 @@ def main():
         student_id = str(r[id_col]).strip() if r[id_col] is not None else ""
         version = str(r[ver_col]).strip() if r[ver_col] is not None else ""
 
-        # Make students commit random issues (no ID or version issues)
-        make_id_issue = False
-        make_ver_issue = False
-
         # --- Draw Student ID bubbles ---
-        # Fixed x of the last digit center (1496 pixels - 17)
         x_last_col_center = 1496 - 17
         id_x_start = int(x_last_col_center - (id_digits - 1) * bubble_step_px)
         id_y_start = 287
@@ -109,23 +104,8 @@ def main():
 
         for digit_col in range(id_digits):
             x = int(id_x_start + digit_col * bubble_step_px)
-
             d_char = padded_id[digit_col]
             correct_val = int(d_char) if d_char.isdigit() else 0
-
-            # If simulating an issue for this digit:
-            if make_id_issue and digit_col == random.randint(0, id_digits - 1):
-                issue_type = random.choice(["missing", "multi"])
-                if issue_type == "missing":
-                    continue
-                elif issue_type == "multi":
-                    other_val = (correct_val + 3) % 10
-                    for v in [correct_val, other_val]:
-                        y = int(id_y_start + v * row_step_px)
-                        cx = x + random.randint(-2, 2)
-                        cy = y + random.randint(-2, 2)
-                        cv2.circle(img, (cx, cy), bubble_r_px - 1, (0, 0, 0), -1)
-                    continue
 
             y = int(id_y_start + correct_val * row_step_px)
             cx = x + random.randint(-2, 2)
@@ -141,18 +121,7 @@ def main():
         if version in VERSION_LETTERS:
             correct_ver_idx = VERSION_LETTERS.index(version)
 
-        if make_ver_issue:
-            ver_issue_type = random.choice(["missing", "multi"])
-            if ver_issue_type == "missing":
-                pass
-            elif ver_issue_type == "multi" and correct_ver_idx != -1:
-                other_ver_idx = (correct_ver_idx + 1) % active_versions
-                for v in [correct_ver_idx, other_ver_idx]:
-                    x = int(version_x_start + v * bubble_step_px)
-                    cx = x + random.randint(-2, 2)
-                    cy = version_y + random.randint(-2, 2)
-                    cv2.circle(img, (cx, cy), bubble_r_px - 1, (0, 0, 0), -1)
-        elif correct_ver_idx != -1:
+        if correct_ver_idx != -1:
             x = int(version_x_start + correct_ver_idx * bubble_step_px)
             cx = x + random.randint(-2, 2)
             cy = version_y + random.randint(-2, 2)
@@ -160,7 +129,6 @@ def main():
 
         # --- Draw Question bubbles ---
         rows_per_col = math.ceil(active_questions / 3)
-        # Visually verified question centroids starting points
         q_y_start = 868.5
         q_x_starts = [204.5, 650.7, 1097.0]
 
@@ -182,12 +150,34 @@ def main():
                 correct_opt_idx = OPTION_LETTERS.index(ans)
 
             if correct_opt_idx != -1:
-                x = int(base_x + correct_opt_idx * bubble_step_px)
-                cx = x + random.randint(-2, 2)
-                cy = y + random.randint(-2, 2)
-                cv2.circle(img, (cx, cy), bubble_r_px - 1, (0, 0, 0), -1)
+                # 2% random error
+                if random.random() < 0.02:
+                    # Original answer
+                    x = int(base_x + correct_opt_idx * bubble_step_px)
+                    cx = x + random.randint(-2, 2)
+                    cy = y + random.randint(-2, 2)
+                    cv2.circle(img, (cx, cy), bubble_r_px - 1, (0, 0, 0), -1)
 
-        # 5. Make the PDF look realistic
+                    # Non-original answer crossed out with an X
+                    other_opts = [idx for idx in range(active_options) if idx != correct_opt_idx]
+                    if other_opts:
+                        other_opt = random.choice(other_opts)
+                        ox = int(base_x + other_opt * bubble_step_px)
+                        ocx = ox + random.randint(-2, 2)
+                        ocy = y + random.randint(-2, 2)
+
+                        # Draw circle
+                        cv2.circle(img, (ocx, ocy), bubble_r_px - 1, (0, 0, 0), -1)
+                        # Draw X over it in white
+                        cv2.line(img, (ocx - 4, ocy - 4), (ocx + 4, ocy + 4), (255, 255, 255), 2)
+                        cv2.line(img, (ocx + 4, ocy - 4), (ocx - 4, ocy + 4), (255, 255, 255), 2)
+                else:
+                    x = int(base_x + correct_opt_idx * bubble_step_px)
+                    cx = x + random.randint(-2, 2)
+                    cy = y + random.randint(-2, 2)
+                    cv2.circle(img, (cx, cy), bubble_r_px - 1, (0, 0, 0), -1)
+
+        # Make the PDF look realistic
         angle = random.uniform(-1.2, 1.2)
         M = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
         img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT, borderValue=(255, 255, 255))
