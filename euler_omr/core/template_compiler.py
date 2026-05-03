@@ -31,7 +31,7 @@ LATEX_TEMPLATE = r"""\documentclass[a4paper]{article}
 \newcommand{\IDDigits}{__ID_DIGITS__}        % Number of ID digits
 \newcommand{\NumQuestions}{__NUM_QUESTIONS__}   % Total number of questions
 \newcommand{\NumOptions}{__NUM_OPTIONS__}      % Options per question  (max 8:  A-H)
-\newcommand{\NumVersions}{__NUM_VERSIONS__}    % Exam versions         (max 26: A-Z)
+\newcommand{\NumVersions}{__NUM_VERSIONS__}    % Exam versions         (max 16: A-Z)
 
 % --- Lengths (change once, applies everywhere) -------------------------------
 \newcommand{\BubbleRcm}{0.22}     % bubble radius              (cm)
