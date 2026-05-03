@@ -49,6 +49,26 @@ class ReportBuilder:
                 fig.savefig(bar_path, dpi=150, bbox_inches="tight")
                 plt.close(fig)
 
+            # ── Chart 3: Individual version histograms ──
+            version_chart_paths = []
+            if report.version_stats:
+                for vs in report.version_stats:
+                    if not vs.scores:
+                        continue
+                    fig, ax = plt.subplots(figsize=(6, 3))
+                    bins = range(0, report.max_score + 2)
+                    ax.hist(vs.scores, bins=bins, color="#1B4F72", edgecolor="#117A65", alpha=0.75, rwidth=0.85)
+                    ax.set_xlabel("Score", fontsize=10, fontweight="bold", color="#1B4F72")
+                    ax.set_ylabel("Frequency", fontsize=10, fontweight="bold", color="#1B4F72")
+                    ax.set_title(f"Score Distribution - Version {vs.version}", fontsize=11, fontweight="bold", color="#1B4F72")
+                    ax.set_xticks(range(0, report.max_score + 1))
+                    ax.grid(axis='y', linestyle='--', alpha=0.4)
+                    chart_name = f"dist_version_{vs.version}.png"
+                    chart_path = os.path.join(tmp, chart_name)
+                    fig.savefig(chart_path, dpi=150, bbox_inches="tight")
+                    plt.close(fig)
+                    version_chart_paths.append((vs.version, chart_name))
+
             _log("Charts generated", "INFO")
 
             # ═══════════════════════════════════════════════════════════
@@ -267,16 +287,31 @@ class ReportBuilder:
                 r"		\caption{Mean score comparison across exam versions}",
                 r"	\end{figure}",
                 "",
+                r"	% ── Section 2.1 ──────────────────────────────────────────────────────────────",
+                r"	\newpage",
+                r"	\section{Per-Version Detailed Score Distributions}",
+                "",
+            ]
+            for ver, chart_name in version_chart_paths:
+                lines += [
+                    r"	\begin{figure}[H]",
+                    r"		\centering",
+                    f"		\\includegraphics[width=0.72\\textwidth]{{{chart_name}}}",
+                    f"		\\caption{{Detailed Score Distribution for Version {ver}}}",
+                    r"	\end{figure}",
+                    "",
+                ]
+            lines += [
                 r"	% ── Section 3 ────────────────────────────────────────────────────────────────",
                 r"	\section{Answer Choice Analysis by Question}",
                 r"	\begin{table}[H]",
                 r"		\centering",
-                r"		\caption{Answer choice distribution across all students}",
+                r"		\caption{Answer choice distribution with Answer Keys}",
                 r"		\renewcommand{\arraystretch}{1.35}",
-                r"		\begin{tabular}{cccccc}",
+                r"		\begin{tabular}{ccccccc}",
                 r"			\toprule",
                 r"			\rowcolor{primary}",
-                r"			\color{white}\textbf{Q} & \color{white}\textbf{A} & \color{white}\textbf{B} & \color{white}\textbf{C} & \color{white}\textbf{D} & \color{white}\textbf{Blank} \\ \midrule",
+                r"			\color{white}\textbf{Q} & \color{white}\textbf{Answer Key} & \color{white}\textbf{A} & \color{white}\textbf{B} & \color{white}\textbf{C} & \color{white}\textbf{D} & \color{white}\textbf{Blank} \\ \midrule",
             ]
             for i, qco in enumerate(report.question_choices_overall):
                 bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
@@ -289,7 +324,54 @@ class ReportBuilder:
                 blank_cnt = freq.get("BLANK", 0)
                 blank_p = round(blank_cnt / qco.total_responses * 100, 1) if qco.total_responses > 0 else 0
                 blank_str = f"{blank_cnt} ({blank_p}\\%)" if blank_cnt > 0 else "--"
-                lines.append(f"			{bg}Q{i+1} & " + " & ".join(opts) + f" & {blank_str} \\\\")
+                key_str = ", ".join(qco.correct_keys) if qco.correct_keys else "--"
+                lines.append(f"			{bg}Q{i+1} & {key_str} & " + " & ".join(opts) + f" & {blank_str} \\\\")
+            lines += [
+                r"			\bottomrule",
+                r"		\end{tabular}",
+                r"	\end{table}",
+                "",
+                r"	% ── Psychometrics Section ───────────────────────────────────────────────────",
+                r"	\newpage",
+                r"	\section{Item Psychometrics: Difficulty \& Discrimination Index}",
+                r"	\begin{table}[H]",
+                r"		\centering",
+                r"		\caption{Item performance metrics across all students and versions}",
+                r"		\renewcommand{\arraystretch}{1.35}",
+                r"		\begin{tabular}{ccccc}",
+                r"			\toprule",
+                r"			\rowcolor{primary}",
+                r"			\color{white}\textbf{Q} & \color{white}\textbf{Key} & \color{white}\textbf{p-value (Difficulty)} & \color{white}\textbf{Discrimination Index (D)} & \color{white}\textbf{Failure Rate} \\ \midrule",
+            ]
+            for i, psy in enumerate(report.item_psychometrics):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                key_str = ", ".join(psy.correct_keys) if psy.correct_keys else "--"
+                lines.append(f"			{bg}Q{psy.question_idx+1} & {key_str} & {psy.p_value} & {psy.discrimination_index} & {psy.failure_rate}\\% \\\\")
+            lines += [
+                r"			\bottomrule",
+                r"		\end{tabular}",
+                r"	\end{table}",
+                "",
+                r"	\begin{tcolorbox}[colback=lightgray, colframe=primary, arc=3pt, boxrule=0.8pt]",
+                r"		\textbf{Psychometrics Interpretation:}\\",
+                r"		\textbf{p-value (Difficulty):} Proportion of students answering correctly. Values $>0.75$ are Easy, $0.30 - 0.75$ are Moderate, $<0.30$ are Hard.\\",
+                r"		\textbf{Discrimination Index (D):} Difference in correct rate between the top 27\% and bottom 27\% of students. Values $>0.30$ indicate Excellent discrimination, $0.10 - 0.30$ Fair, and $<0.10$ Poor.",
+                r"	\end{tcolorbox}",
+                "",
+                r"	\subsection{Cross-Question Performance Comparison}",
+                r"	\begin{table}[H]",
+                r"		\centering",
+                r"		\caption{Items ranked from highest to lowest failure rate}",
+                r"		\renewcommand{\arraystretch}{1.35}",
+                r"		\begin{tabular}{cccc}",
+                r"			\toprule",
+                r"			\rowcolor{primary}",
+                r"			\color{white}\textbf{Rank} & \color{white}\textbf{Item} & \color{white}\textbf{Failure Rate} & \color{white}\textbf{p-value (Difficulty)} \\ \midrule",
+            ]
+            sorted_psy = sorted(report.item_psychometrics, key=lambda p: p.failure_rate, reverse=True)
+            for i, psy in enumerate(sorted_psy):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                lines.append(f"			{bg}{i+1} & Q{psy.question_idx+1} & {psy.failure_rate}\\% & {psy.p_value} \\\\")
             lines += [
                 r"			\bottomrule",
                 r"		\end{tabular}",

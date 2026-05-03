@@ -26,6 +26,7 @@ class QuestionChoiceOverall:
     question_idx: int
     option_frequencies: dict[str, int] = field(default_factory=dict)
     total_responses: int = 0
+    correct_keys: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -72,6 +73,15 @@ class ScoreDistEntry:
 
 
 @dataclass
+class ItemPsychometrics:
+    question_idx: int
+    correct_keys: list[str] = field(default_factory=list)
+    p_value: float = 0.0  # item difficulty: proportion correct
+    discrimination_index: float = 0.0  # D = P_High - P_Low
+    failure_rate: float = 0.0  # 1 - p_value
+
+
+@dataclass
 class AnalysisReport:
     overall_mean: float = 0.0
     overall_median: float = 0.0
@@ -85,6 +95,7 @@ class AnalysisReport:
     question_analyses: list[QuestionAnalysis] = field(default_factory=list)
     question_choices_overall: list[QuestionChoiceOverall] = field(default_factory=list)
     question_choices_by_version: list[QuestionChoiceByVersion] = field(default_factory=list)
+    item_psychometrics: list[ItemPsychometrics] = field(default_factory=list)
     fairness_verdict: str = "FAIR"
     fairness_explanation: str = ""
     version_ranking: list[VersionRankEntry] = field(default_factory=list)
@@ -143,7 +154,6 @@ class AnalysisEngine:
         f_stat = ms_between / ms_within
 
         # Approximate p-value using F-distribution (rough approximation)
-        # For a proper p-value we'd need scipy, but let's give a rough estimate
         p_value = AnalysisEngine._f_pvalue_approx(f_stat, df_between, df_within)
         return round(f_stat, 4), round(p_value, 6)
 
@@ -154,7 +164,6 @@ class AnalysisEngine:
             from scipy.stats import f as f_dist
             return float(1 - f_dist.cdf(f_stat, df1, df2))
         except ImportError:
-            # Rough heuristic if scipy unavailable
             if f_stat > 10:
                 return 0.0001
             elif f_stat > 5:
@@ -267,13 +276,56 @@ class AnalysisEngine:
         for q_idx in range(active_questions):
             freq: dict[str, int] = {}
             total = 0
+            # Gather unique correct keys for this question across all versions
+            q_correct_keys = set()
+            for ver in by_version.keys():
+                keys = answer_key.get_version_keys(ver)
+                q_correct_keys.update(keys.get(q_idx, set()))
+
             for g in grades:
                 ans = g.answers[q_idx] if q_idx < len(g.answers) else ""
                 key = ans if ans else "BLANK"
                 freq[key] = freq.get(key, 0) + 1
                 total += 1
+
             report.question_choices_overall.append(QuestionChoiceOverall(
-                question_idx=q_idx, option_frequencies=freq, total_responses=total
+                question_idx=q_idx,
+                option_frequencies=freq,
+                total_responses=total,
+                correct_keys=sorted(list(q_correct_keys))
+            ))
+
+        # Item psychometrics (overall item difficulty, discrimination index, failure rate)
+        high_low_n = max(1, int(len(grades) * 0.27))
+        sorted_grades = sorted(grades, key=lambda g: g.score, reverse=True)
+        high_group = sorted_grades[:high_low_n]
+        low_group = sorted_grades[-high_low_n:]
+
+        for q_idx in range(active_questions):
+            q_correct_keys = set()
+            for ver in by_version.keys():
+                keys = answer_key.get_version_keys(ver)
+                q_correct_keys.update(keys.get(q_idx, set()))
+
+            correct_all = 0
+            for g in grades:
+                ans = g.answers[q_idx] if q_idx < len(g.answers) else ""
+                if ans in q_correct_keys:
+                    correct_all += 1
+            p_val = correct_all / len(grades) if grades else 0.0
+
+            corr_high = sum(1 for g in high_group if (g.answers[q_idx] if q_idx < len(g.answers) else "") in q_correct_keys)
+            corr_low = sum(1 for g in low_group if (g.answers[q_idx] if q_idx < len(g.answers) else "") in q_correct_keys)
+            p_high = corr_high / high_low_n if high_low_n > 0 else 0.0
+            p_low = corr_low / high_low_n if high_low_n > 0 else 0.0
+            d_index = p_high - p_low
+
+            report.item_psychometrics.append(ItemPsychometrics(
+                question_idx=q_idx,
+                correct_keys=sorted(list(q_correct_keys)),
+                p_value=round(p_val, 3),
+                discrimination_index=round(d_index, 3),
+                failure_rate=round(1.0 - p_val, 3)
             ))
 
         # Question choice analysis - per version
