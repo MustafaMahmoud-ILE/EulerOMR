@@ -346,6 +346,7 @@ class ReportBuilder:
                 r"	\centering",
                 r"	\caption{Complete Advanced Question Metrics}",
                 r"	\renewcommand{\arraystretch}{1.3}",
+                r"	\resizebox{0.95\textwidth}{!}{%",
                 r"	\begin{tabular}{ccccccc}",
                 r"		\toprule",
                 r"		\rowcolor{primary}",
@@ -368,7 +369,8 @@ class ReportBuilder:
 
             lines += [
                 r"		\bottomrule",
-                r"	\end{tabular}",
+                r"	\end{tabular}%",
+                r"	}",
                 r"\end{table}",
                 "",
                 r"\newpage",
