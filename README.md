@@ -4,6 +4,23 @@ A production-grade desktop application for designing OMR (Optical Mark Recogniti
 
 ![Euler OMR](icon.png)
 
+## Screenshots
+
+### Welcome Screen
+![Welcome](assets/screenshots/welcome.png)
+
+### Template Designer
+![Template Designer](assets/screenshots/template.png)
+
+### Project Manager
+![Project](assets/screenshots/project.png)
+
+### Review Issues
+![Review Issues](assets/screenshots/review_issues.png)
+
+### Manage Answer Keys
+![Answer Keys](assets/screenshots/manage_answer_keys.png)
+
 ## Features
 
 - **Template Designer** — Design OMR answer sheets with configurable ID digits, versions, questions, and options. Compile to PDF via LaTeX.
