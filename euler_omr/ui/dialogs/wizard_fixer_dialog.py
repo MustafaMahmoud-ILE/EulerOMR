@@ -23,7 +23,7 @@ class WizardFixerDialog(QDialog):
                  scans_pdf_bytes=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Wizard Fixer")
-        self.setMinimumSize(850, 700)
+        self.setMinimumSize(640, 525)
 
         self._scans_pdf_path = scans_pdf_path
         self._scans_pdf_bytes = scans_pdf_bytes
@@ -157,12 +157,12 @@ class WizardFixerDialog(QDialog):
                     img_bgr = sr._perspective_correct(img_bgr, marks)
         return img_bgr
 
-    def _np_to_pixmap(self, img_bgr):
+    def _np_to_pixmap(self, img_bgr, scale=0.75):
         if img_bgr is None:
             return QPixmap()
         h, w, ch = img_bgr.shape
-        new_w = int(w * 0.75)
-        new_h = int(h * 0.75)
+        new_w = int(w * scale)
+        new_h = int(h * scale)
         img_bgr = cv2.resize(img_bgr, (new_w, new_h), interpolation=cv2.INTER_AREA)
         h, w, ch = img_bgr.shape
 
@@ -221,7 +221,7 @@ class WizardFixerDialog(QDialog):
             if has_id_issue:
                 table_crop = page_img[433:688, 157:805]
                 self.lbl_table_crop = QLabel()
-                self.lbl_table_crop.setPixmap(self._np_to_pixmap(table_crop))
+                self.lbl_table_crop.setPixmap(self._np_to_pixmap(table_crop, scale=0.5625))
                 self.lbl_table_crop.setStyleSheet("border: none; background: transparent;")
                 self.id_layout.insertWidget(0, self.lbl_table_crop)
 
@@ -233,13 +233,13 @@ class WizardFixerDialog(QDialog):
 
                 id_crop = page_img[268:660, id_x_min:id_x_max]
                 self.lbl_id_crop = QLabel()
-                self.lbl_id_crop.setPixmap(self._np_to_pixmap(id_crop))
+                self.lbl_id_crop.setPixmap(self._np_to_pixmap(id_crop, scale=0.5625))
                 self.lbl_id_crop.setStyleSheet("border: none; background: transparent;")
                 self.id_layout.insertWidget(1, self.lbl_id_crop)
 
-            # Tight Version crop: [755:820, 157:565]
+            # Tight Version crop: [755:820, 157:700]
             if has_ver_issue:
-                ver_crop = page_img[755:820, 157:565]
+                ver_crop = page_img[755:820, 157:700]
                 self.lbl_ver_crop = QLabel()
                 self.lbl_ver_crop.setPixmap(self._np_to_pixmap(ver_crop))
                 self.lbl_ver_crop.setStyleSheet("border: none; background: transparent;")
