@@ -38,7 +38,11 @@ class GradeWorker(BaseWorker):
             self._log("Exporting XLSX...", "INFO")
             XlsxExporter.export(grades, self.xlsx_path, report)
             self.signals.progress.emit(4, 4)
+            from euler_omr.core.sound_manager import SoundManager
+            SoundManager.play_complete()
             self.signals.result.emit((self.xlsx_path, self.report_path))
             self.signals.finished.emit()
         except Exception as e:
+            from euler_omr.core.sound_manager import SoundManager
+            SoundManager.play_alert()
             self.signals.error.emit(f"Grading error: {e}")

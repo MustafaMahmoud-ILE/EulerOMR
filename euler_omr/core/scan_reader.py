@@ -34,12 +34,14 @@ class ScanReader:
         active_questions: int,
         active_options: int,
         active_versions: int,
+        num_questions: int = None,
     ):
         self.id_digits = id_digits
         self.num_versions = num_versions
         self.active_questions = active_questions
         self.active_options = active_options
         self.active_versions = active_versions
+        self.num_questions = num_questions if num_questions is not None else active_questions
 
     @staticmethod
     def load_pdf_pages(pdf_path: str) -> list[np.ndarray]:
@@ -119,10 +121,13 @@ class ScanReader:
         ]
 
         selected = []
+        used_rects = set()
         for cx, cy in corners:
             best = None
             best_dist = float("inf")
             for rect in rects:
+                if rect in used_rects:
+                    continue
                 rx, ry, rw, rh = rect
                 center_x = rx + rw / 2
                 center_y = ry + rh / 2
@@ -132,6 +137,7 @@ class ScanReader:
                     best = rect
             if best and best_dist < max(h_img, w_img) * 0.2:
                 selected.append(best)
+                used_rects.add(best)
 
         if len(selected) != 4:
             return None
@@ -175,22 +181,31 @@ class ScanReader:
         """Apply perspective correction using corner mark centroids."""
         h, w = gray.shape[:2]
 
-        # Get centroids of the four marks
+        # Get precise centroids of the four marks using image moments
         src_points = []
         for x, y, mw, mh in marks:
-            cx = x + mw / 2.0
-            cy = y + mh / 2.0
+            y1, y2 = max(0, int(y)), min(h, int(y + mh))
+            x1, x2 = max(0, int(x)), min(w, int(x + mw))
+            roi = gray[y1:y2, x1:x2]
+            if len(roi.shape) == 3 and roi.shape[2] == 3:
+                roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            _, roi_bin = cv2.threshold(roi, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            M_mom = cv2.moments(roi_bin)
+            if M_mom["m00"] > 0:
+                cx = x1 + M_mom["m10"] / M_mom["m00"]
+                cy = y1 + M_mom["m01"] / M_mom["m00"]
+            else:
+                cx = x + mw / 2.0
+                cy = y + mh / 2.0
             src_points.append([cx, cy])
         src = np.float32(src_points)
 
-        # Define destination points (ideal positions)
-        margin_x = w * 0.05
-        margin_y = h * 0.05
+        # Define destination points (ideal LaTeX centroids at 200 DPI)
         dst = np.float32([
-            [margin_x, margin_y],
-            [w - margin_x, margin_y],
-            [margin_x, h - margin_y],
-            [w - margin_x, h - margin_y],
+            [173.0, 126.0],     # top-left
+            [1527.5, 126.0],    # top-right
+            [126.0, 2212.5],    # bottom-left
+            [1527.5, 2212.5],   # bottom-right
         ])
 
         M = cv2.getPerspectiveTransform(src, dst)
@@ -241,6 +256,7 @@ class ScanReader:
         img: np.ndarray,
         page_no: int,
         log_callback: Callable | None = None,
+        is_fallback: bool = False,
     ) -> ScanResult:
         """
         Read a single scanned page and return a ScanResult.
@@ -252,8 +268,10 @@ class ScanReader:
         issues: list[Issue] = []
 
         # Convert to grayscale
-        if len(img.shape) == 3:
+        if len(img.shape) == 3 and img.shape[2] == 3:
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        elif len(img.shape) == 3 and img.shape[2] == 1:
+            gray = img[:, :, 0].copy()
         else:
             gray = img.copy()
 
@@ -290,9 +308,10 @@ class ScanReader:
         row_step_px = 0.5 * cm_to_px
 
         # --- Read Student ID bubbles ---
-        # ID bubbles are in the right half of the page, top area
-        id_x_start = int(w * 0.55)
-        id_y_start = int(h * 0.12)
+        # Fixed x of the last digit center (1496 pixels - 17)
+        x_last_col_center = 1496 - 17
+        id_x_start = int(x_last_col_center - (self.id_digits - 1) * bubble_step_px)
+        id_y_start = 287
 
         student_id = ""
         for digit_col in range(self.id_digits):
@@ -348,8 +367,8 @@ class ScanReader:
         result.student_id = student_id
 
         # --- Read Version bubble ---
-        version_y = int(h * 0.35)
-        version_x_start = int(w * 0.08)
+        version_x_start = 176
+        version_y = 778
 
         best_version = -1
         best_ratio = 0.0
@@ -401,9 +420,9 @@ class ScanReader:
 
         # --- Read Question bubbles ---
         answers = []
-        rows_per_col = math.ceil(self.active_questions / 3)
-        q_y_start = int(h * 0.40)
-        q_x_starts = [int(w * 0.08), int(w * 0.38), int(w * 0.68)]
+        rows_per_col = math.ceil(self.num_questions / 3)
+        q_y_start = 868.5
+        q_x_starts = [204.5, 650.7, 1097.0]
 
         for q_idx in range(self.active_questions):
             col_idx = q_idx // rows_per_col
@@ -421,7 +440,7 @@ class ScanReader:
             option_filled = 0
 
             for opt_idx in range(self.active_options):
-                x = int(base_x + (opt_idx + 1) * bubble_step_px)
+                x = int(base_x + opt_idx * bubble_step_px)
                 cx = max(bubble_r_px, min(w - bubble_r_px - 1, x))
                 cy = max(bubble_r_px, min(h - bubble_r_px - 1, y))
 
@@ -467,12 +486,12 @@ class ScanReader:
         result.issues = issues
 
         # Auto-contrast fallback if too many issues
-        if len(issues) > AUTO_CONTRAST_ISSUE_THRESHOLD:
+        if not is_fallback and len(issues) > AUTO_CONTRAST_ISSUE_THRESHOLD:
             _log(f"Page {page_no}: {len(issues)} issues detected, attempting auto-contrast...", "WARNING")
             # Try CLAHE
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
             enhanced = clahe.apply(gray)
-            alt_result = self.read_page(enhanced[..., np.newaxis] if len(enhanced.shape) == 2 else enhanced, page_no, log_callback=None)
+            alt_result = self.read_page(enhanced, page_no, log_callback=None, is_fallback=True)
             if len(alt_result.issues) < len(issues):
                 _log(f"Page {page_no}: Auto-contrast reduced issues from {len(issues)} to {len(alt_result.issues)}", "INFO")
                 result = alt_result

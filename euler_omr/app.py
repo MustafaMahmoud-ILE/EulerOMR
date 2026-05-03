@@ -35,16 +35,24 @@ class EulerApp(QApplication):
 
         # If it's not already running, play the startup sound
         if not self._is_running:
-            from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
-            from PySide6.QtCore import QUrl
-            sound_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "sounds", "open.mp3")
-            if os.path.exists(sound_path):
-                self._player = QMediaPlayer()
-                self._audio_output = QAudioOutput()
-                self._player.setAudioOutput(self._audio_output)
-                self._player.setSource(QUrl.fromLocalFile(sound_path))
-                self._audio_output.setVolume(1.0)
-                self._player.play()
+            from euler_omr.core.sound_manager import SoundManager
+            SoundManager.play_open()
+
+        # Monkeypatch QPushButton and QMessageBox to add automatic sounds
+        from PySide6.QtWidgets import QPushButton, QMessageBox
+        old_btn_press = QPushButton.mousePressEvent
+        def new_btn_press(btn_self, event):
+            from euler_omr.core.sound_manager import SoundManager
+            SoundManager.play_click()
+            old_btn_press(btn_self, event)
+        QPushButton.mousePressEvent = new_btn_press
+
+        old_msg_exec = QMessageBox.exec
+        def new_msg_exec(msg_self, *args, **kwargs):
+            from euler_omr.core.sound_manager import SoundManager
+            SoundManager.play_alert()
+            return old_msg_exec(msg_self, *args, **kwargs)
+        QMessageBox.exec = new_msg_exec
 
         # Global exception handler
         sys.excepthook = self._exception_hook

@@ -1,6 +1,7 @@
 """Statistical engine: mean, median, mode, stddev; per-version; question-level diagnostics; fairness."""
 from __future__ import annotations
 import statistics
+import math
 from dataclasses import dataclass, field
 from euler_omr.models.scan_result import GradeRecord
 from euler_omr.models.answer_key import AnswerKey
@@ -20,6 +21,22 @@ class QuestionAnalysis:
 
 
 @dataclass
+class QuestionChoiceOverall:
+    """Answer choice frequencies for a question across ALL students."""
+    question_idx: int
+    option_frequencies: dict[str, int] = field(default_factory=dict)
+    total_responses: int = 0
+
+
+@dataclass
+class QuestionChoiceByVersion:
+    """Answer choice percentages for a question broken down by version."""
+    question_idx: int
+    # {version: {option: percentage}}
+    version_option_pct: dict[str, dict[str, float]] = field(default_factory=dict)
+
+
+@dataclass
 class VersionStats:
     version: str
     count: int = 0
@@ -27,7 +44,31 @@ class VersionStats:
     median: float = 0.0
     mode: float = 0.0
     stddev: float = 0.0
+    min_score: int = 0
+    max_score_val: int = 0
     scores: list[float] = field(default_factory=list)
+
+
+@dataclass
+class VersionRankEntry:
+    version: str
+    mean: float
+    difficulty_label: str = "Moderate"
+
+
+@dataclass
+class VersionOutlier:
+    version: str
+    mean: float
+    z_score: float
+    label: str = ""
+
+
+@dataclass
+class ScoreDistEntry:
+    score: int
+    count: int
+    percentage: float
 
 
 @dataclass
@@ -36,13 +77,27 @@ class AnalysisReport:
     overall_median: float = 0.0
     overall_mode: float = 0.0
     overall_stddev: float = 0.0
+    overall_min: int = 0
+    overall_max: int = 0
     overall_scores: list[float] = field(default_factory=list)
+    score_distribution: list[ScoreDistEntry] = field(default_factory=list)
     version_stats: list[VersionStats] = field(default_factory=list)
     question_analyses: list[QuestionAnalysis] = field(default_factory=list)
+    question_choices_overall: list[QuestionChoiceOverall] = field(default_factory=list)
+    question_choices_by_version: list[QuestionChoiceByVersion] = field(default_factory=list)
     fairness_verdict: str = "FAIR"
     fairness_explanation: str = ""
-    version_ranking: list[str] = field(default_factory=list)
+    version_ranking: list[VersionRankEntry] = field(default_factory=list)
+    version_outliers: list[VersionOutlier] = field(default_factory=list)
+    anova_f: float = 0.0
+    anova_p: float = 1.0
+    kruskal_h: float = 0.0
+    kruskal_p: float = 1.0
+    grand_mean_versions: float = 0.0
+    std_version_means: float = 0.0
     max_score: int = 0
+    total_students: int = 0
+    active_options: list[str] = field(default_factory=list)
 
 
 class AnalysisEngine:
@@ -54,8 +109,77 @@ class AnalysisEngine:
             return values[0] if values else 0
 
     @staticmethod
+    def _safe_multimode(values):
+        try:
+            return statistics.multimode(values)
+        except Exception:
+            return [values[0]] if values else [0]
+
+    @staticmethod
     def _safe_stddev(values):
         return statistics.stdev(values) if len(values) > 1 else 0.0
+
+    @staticmethod
+    def _anova_oneway(groups: list[list[float]]):
+        """Simple one-way ANOVA F-test (no scipy dependency)."""
+        all_vals = [v for g in groups for v in g]
+        if not all_vals or len(groups) < 2:
+            return 0.0, 1.0
+        grand_mean = sum(all_vals) / len(all_vals)
+        k = len(groups)
+        n_total = len(all_vals)
+
+        ss_between = sum(len(g) * (sum(g)/len(g) - grand_mean)**2 for g in groups if g)
+        ss_within = sum((v - sum(g)/len(g))**2 for g in groups if g for v in g)
+
+        df_between = k - 1
+        df_within = n_total - k
+
+        if df_between <= 0 or df_within <= 0 or ss_within == 0:
+            return 0.0, 1.0
+
+        ms_between = ss_between / df_between
+        ms_within = ss_within / df_within
+        f_stat = ms_between / ms_within
+
+        # Approximate p-value using F-distribution (rough approximation)
+        # For a proper p-value we'd need scipy, but let's give a rough estimate
+        p_value = AnalysisEngine._f_pvalue_approx(f_stat, df_between, df_within)
+        return round(f_stat, 4), round(p_value, 6)
+
+    @staticmethod
+    def _f_pvalue_approx(f_stat, df1, df2):
+        """Very rough p-value approximation for F distribution."""
+        try:
+            from scipy.stats import f as f_dist
+            return float(1 - f_dist.cdf(f_stat, df1, df2))
+        except ImportError:
+            # Rough heuristic if scipy unavailable
+            if f_stat > 10:
+                return 0.0001
+            elif f_stat > 5:
+                return 0.001
+            elif f_stat > 3:
+                return 0.01
+            elif f_stat > 2:
+                return 0.05
+            else:
+                return 0.2
+
+    @staticmethod
+    def _kruskal_wallis(groups: list[list[float]]):
+        """Simple Kruskal-Wallis H test."""
+        try:
+            from scipy.stats import kruskal
+            valid = [g for g in groups if len(g) >= 2]
+            if len(valid) < 2:
+                return 0.0, 1.0
+            h, p = kruskal(*valid)
+            return round(float(h), 4), round(float(p), 6)
+        except ImportError:
+            return 0.0, 1.0
+        except Exception:
+            return 0.0, 1.0
 
     @staticmethod
     def analyze(grades: list[GradeRecord], answer_key: AnswerKey, active_questions: int) -> AnalysisReport:
@@ -63,13 +187,30 @@ class AnalysisEngine:
         if not grades:
             return report
 
+        report.total_students = len(grades)
         report.max_score = grades[0].max_score if grades else active_questions
         all_scores = [g.score for g in grades]
         report.overall_scores = all_scores
-        report.overall_mean = round(statistics.mean(all_scores), 2)
-        report.overall_median = round(statistics.median(all_scores), 2)
+        report.overall_mean = round(statistics.mean(all_scores), 3)
+        report.overall_median = round(statistics.median(all_scores), 1)
         report.overall_mode = AnalysisEngine._safe_mode(all_scores)
-        report.overall_stddev = round(AnalysisEngine._safe_stddev(all_scores), 2)
+        report.overall_stddev = round(AnalysisEngine._safe_stddev(all_scores), 3)
+        report.overall_min = min(all_scores)
+        report.overall_max = max(all_scores)
+
+        # Collect unique active options from the data
+        all_options = set()
+        for g in grades:
+            for a in g.answers:
+                if a:
+                    all_options.add(a)
+        report.active_options = sorted(all_options)
+
+        # Score distribution
+        for s in range(0, report.max_score + 1):
+            cnt = all_scores.count(s)
+            pct = round(cnt / len(all_scores) * 100, 1)
+            report.score_distribution.append(ScoreDistEntry(score=s, count=cnt, percentage=pct))
 
         # Per-version stats
         by_version: dict[str, list[GradeRecord]] = {}
@@ -78,17 +219,20 @@ class AnalysisEngine:
 
         for ver, ver_grades in sorted(by_version.items()):
             scores = [g.score for g in ver_grades]
+            modes = AnalysisEngine._safe_multimode(scores)
             vs = VersionStats(
                 version=ver, count=len(scores),
-                mean=round(statistics.mean(scores), 2),
-                median=round(statistics.median(scores), 2),
-                mode=AnalysisEngine._safe_mode(scores),
-                stddev=round(AnalysisEngine._safe_stddev(scores), 2),
+                mean=round(statistics.mean(scores), 3),
+                median=round(statistics.median(scores), 1),
+                mode=modes[0] if len(modes) == 1 else modes[0],
+                stddev=round(AnalysisEngine._safe_stddev(scores), 3),
+                min_score=min(scores),
+                max_score_val=max(scores),
                 scores=scores,
             )
             report.version_stats.append(vs)
 
-        # Question-level analysis
+        # Question-level analysis (per version)
         for ver, ver_grades in sorted(by_version.items()):
             ver_keys = answer_key.get_version_keys(ver)
             for q_idx in range(active_questions):
@@ -119,7 +263,39 @@ class AnalysisEngine:
                 )
                 report.question_analyses.append(qa)
 
-        # Fairness
+        # Question choice analysis - ALL students
+        for q_idx in range(active_questions):
+            freq: dict[str, int] = {}
+            total = 0
+            for g in grades:
+                ans = g.answers[q_idx] if q_idx < len(g.answers) else ""
+                key = ans if ans else "BLANK"
+                freq[key] = freq.get(key, 0) + 1
+                total += 1
+            report.question_choices_overall.append(QuestionChoiceOverall(
+                question_idx=q_idx, option_frequencies=freq, total_responses=total
+            ))
+
+        # Question choice analysis - per version
+        for q_idx in range(active_questions):
+            ver_pct: dict[str, dict[str, float]] = {}
+            for ver, ver_grades in sorted(by_version.items()):
+                freq: dict[str, int] = {}
+                total = 0
+                for g in ver_grades:
+                    ans = g.answers[q_idx] if q_idx < len(g.answers) else ""
+                    key = ans if ans else "BLANK"
+                    freq[key] = freq.get(key, 0) + 1
+                    total += 1
+                pct_map = {}
+                for opt_key, cnt in freq.items():
+                    pct_map[opt_key] = round(cnt / total * 100, 0) if total > 0 else 0.0
+                ver_pct[ver] = pct_map
+            report.question_choices_by_version.append(QuestionChoiceByVersion(
+                question_idx=q_idx, version_option_pct=ver_pct
+            ))
+
+        # Fairness & ANOVA
         if len(report.version_stats) >= 2:
             means = [vs.mean for vs in report.version_stats]
             max_mean, min_mean = max(means), min(means)
@@ -133,7 +309,38 @@ class AnalysisEngine:
             else:
                 report.fairness_verdict = "FAIR"
                 report.fairness_explanation = "All version means are within acceptable range."
-            ranked = sorted(report.version_stats, key=lambda v: v.mean)
-            report.version_ranking = [v.version for v in ranked]
+
+            # Version ranking by difficulty
+            ranked = sorted(report.version_stats, key=lambda v: v.mean, reverse=True)
+            for rank_idx, vs in enumerate(ranked):
+                pct = vs.mean / report.max_score * 100 if report.max_score > 0 else 0
+                if pct >= 75:
+                    label = "Easy ✓"
+                elif pct >= 55:
+                    label = "Moderate"
+                else:
+                    label = "Hard ✗"
+                report.version_ranking.append(VersionRankEntry(
+                    version=vs.version, mean=vs.mean, difficulty_label=label
+                ))
+
+            # ANOVA
+            groups = [vs.scores for vs in report.version_stats if vs.scores]
+            report.anova_f, report.anova_p = AnalysisEngine._anova_oneway(groups)
+            report.kruskal_h, report.kruskal_p = AnalysisEngine._kruskal_wallis(groups)
+
+            # Outlier versions
+            report.grand_mean_versions = round(statistics.mean(means), 3)
+            report.std_version_means = round(AnalysisEngine._safe_stddev(means), 3) if len(means) > 1 else 0.0
+            for vs in report.version_stats:
+                z = (vs.mean - report.grand_mean_versions) / report.std_version_means if report.std_version_means > 0 else 0.0
+                label = ""
+                if z > 1.2:
+                    label = "← Significantly EASIER"
+                elif z < -1.0:
+                    label = "← Significantly HARDER"
+                report.version_outliers.append(VersionOutlier(
+                    version=vs.version, mean=vs.mean, z_score=round(z, 2), label=label
+                ))
 
         return report

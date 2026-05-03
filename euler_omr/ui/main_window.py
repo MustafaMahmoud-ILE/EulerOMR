@@ -210,8 +210,23 @@ class MainWindow(QMainWindow):
                     tab._answer_keys_saved = True
                     tab._update_grading_button()
 
-                tab._scans_pdf_path = None  # Scans are embedded
-                tab.btn_start_reading.setEnabled(tab._template_config is not None)
+                if tab._scans_pdf_bytes:
+                    import tempfile
+                    temp_dir = tempfile.gettempdir()
+                    p_name = tab._project_name or "project"
+                    sp_path = os.path.join(temp_dir, f"scans_{p_name}.pdf")
+                    try:
+                        with open(sp_path, "wb") as f:
+                            f.write(tab._scans_pdf_bytes)
+                        tab._scans_pdf_path = sp_path
+                    except Exception as e:
+                        print(f"Failed to extract embedded scans PDF on load: {e}")
+                else:
+                    tab._scans_pdf_path = None
+
+                tab.btn_start_reading.setEnabled(tab._template_config is not None and tab._scans_pdf_path is not None)
+                tab._dirty = False
+                tab.dirty_changed.emit(False)
                 tab.title_changed.connect(lambda title: self._update_tab_title(tab, title))
                 idx = self.tabs.addTab(tab, tab.tab_title())
                 self.tabs.setCurrentIndex(idx)

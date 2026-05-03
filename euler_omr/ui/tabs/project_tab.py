@@ -74,6 +74,19 @@ class ScanResultTableModel(QAbstractTableModel):
     def get_result(self, row) -> ScanResult | None:
         return self._results[row] if 0 <= row < len(self._results) else None
 
+    def sort(self, column, order=Qt.SortOrder.AscendingOrder):
+        self.beginResetModel()
+        reverse = (order == Qt.SortOrder.DescendingOrder)
+        if column == 0:
+            self._results.sort(key=lambda r: r.page_no, reverse=reverse)
+        elif column == 1:
+            self._results.sort(key=lambda r: r.student_id or "", reverse=reverse)
+        elif column == 2:
+            self._results.sort(key=lambda r: r.version or "", reverse=reverse)
+        elif column == 3:
+            self._results.sort(key=lambda r: r.state.value if r.state else "", reverse=reverse)
+        self.endResetModel()
+
 
 class ProjectTab(QWidget):
     dirty_changed = Signal(bool)
@@ -287,6 +300,7 @@ class ProjectTab(QWidget):
             active_questions=self.sp_active_q.value(),
             active_options=self.sp_active_opt.value(),
             active_versions=self.sp_active_ver.value(),
+            num_questions=tc.num_questions,
         )
 
         self._scan_results = []
@@ -335,6 +349,8 @@ class ProjectTab(QWidget):
         self._scan_reading_done = True
         self.btn_manage_keys.setEnabled(True)
         self._mark_dirty()
+        from euler_omr.core.sound_manager import SoundManager
+        SoundManager.play_complete()
         self.log_panel.append_log("Scan reading complete.", "INFO")
 
     def _on_read_error(self, msg):
@@ -406,6 +422,9 @@ class ProjectTab(QWidget):
             active_questions=self.sp_active_q.value(),
             active_options=self.sp_active_opt.value(),
             active_versions=self.sp_active_ver.value(),
+            scans_pdf_path=self._scans_pdf_path,
+            scans_pdf_bytes=self._scans_pdf_bytes,
+            num_questions=self._template_config.num_questions if self._template_config else self.sp_active_q.value(),
             parent=self,
         )
         if dlg.exec():
