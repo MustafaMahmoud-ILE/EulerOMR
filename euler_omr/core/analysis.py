@@ -419,6 +419,7 @@ class AnalysisEngine:
         else:
             kr20 = 0.0
 
+        kr20 = max(0.0, min(1.0, kr20))
         report.cronbach_alpha = round(kr20, 3)
         report.kr20 = round(kr20, 3)
 
@@ -440,12 +441,14 @@ class AnalysisEngine:
         else:
             split_half = kr20
 
+        split_half = max(0.0, min(1.0, split_half))
         report.split_half_reliability = round(split_half, 3)
 
         # ── 6. Student Analytics ──
         for g in grades:
-            less_or_equal = sum(1 for s in all_scores if s <= g.score)
-            percentile = (less_or_equal / len(all_scores)) * 100 if all_scores else 0.0
+            below = sum(1 for s in all_scores if s < g.score)
+            equal = sum(1 for s in all_scores if s == g.score)
+            percentile = (below + 0.5 * equal) / len(all_scores) * 100 if all_scores else 0.0
             z = (g.score - report.overall_mean) / report.overall_stddev if report.overall_stddev > 0 else 0.0
 
             pct_score = (g.score / report.max_score) * 100 if report.max_score > 0 else 0.0
