@@ -81,6 +81,10 @@ class ItemPsychometrics:
     p_value: float = 0.0  # item difficulty: proportion correct
     discrimination_index: float = 0.0  # D = P_High - P_Low
     failure_rate: float = 0.0  # 1 - p_value
+    point_biserial: float = 0.0
+    corrected_item_total: float = 0.0
+    distractor_efficiency: float = 0.0
+    quality_class: str = "Acceptable"
 
 
 @dataclass
@@ -111,6 +115,11 @@ class AnalysisReport:
     max_score: int = 0
     total_students: int = 0
     active_options: list[str] = field(default_factory=list)
+    cronbach_alpha: float = 0.0
+    kr20: float = 0.0
+    split_half_reliability: float = 0.0
+    topic_analyses: list[dict] = field(default_factory=list)
+    student_analytics: list[dict] = field(default_factory=list)
 
 
 class AnalysisEngine:
@@ -303,6 +312,19 @@ class AnalysisEngine:
         high_group = sorted_grades[:high_low_n]
         low_group = sorted_grades[-high_low_n:]
 
+        # Student responses in binary (1 correct, 0 incorrect) for item-total and reliability
+        student_item_correct = []
+        for g in grades:
+            row = []
+            for q_idx in range(active_questions):
+                q_correct_keys = set()
+                for ver in by_version.keys():
+                    keys = answer_key.get_version_keys(ver)
+                    q_correct_keys.update(keys.get(q_idx, set()))
+                ans = g.answers[q_idx] if q_idx < len(g.answers) else ""
+                row.append(1 if ans in q_correct_keys else 0)
+            student_item_correct.append(row)
+
         for q_idx in range(active_questions):
             q_correct_keys = set()
             for ver in by_version.keys():
@@ -322,13 +344,160 @@ class AnalysisEngine:
             p_low = corr_low / high_low_n if high_low_n > 0 else 0.0
             d_index = p_high - p_low
 
+            # ── 1. Point-Biserial Correlation ──
+            item_scores = [student_item_correct[s_idx][q_idx] for s_idx in range(len(grades))]
+            total_scores = [g.score for g in grades]
+
+            # Mean of correct vs mean of incorrect
+            c_scores = [total_scores[s_idx] for s_idx in range(len(grades)) if item_scores[s_idx] == 1]
+            inc_scores = [total_scores[s_idx] for s_idx in range(len(grades)) if item_scores[s_idx] == 0]
+
+            m1 = statistics.mean(c_scores) if c_scores else 0.0
+            m0 = statistics.mean(inc_scores) if inc_scores else 0.0
+            s_n = statistics.stdev(total_scores) if len(total_scores) > 1 else 1.0
+            if s_n == 0:
+                s_n = 1.0
+
+            p_biserial = ((m1 - m0) / s_n) * math.sqrt(max(0, p_val * (1.0 - p_val)))
+
+            # ── 2. Corrected Item-Total Correlation ──
+            # Correlation between item score and total score minus that item score
+            adj_scores = [total_scores[s_idx] - item_scores[s_idx] for s_idx in range(len(grades))]
+            if len(grades) > 1 and statistics.stdev(item_scores) > 0 and statistics.stdev(adj_scores) > 0:
+                mean_item = statistics.mean(item_scores)
+                mean_adj = statistics.mean(adj_scores)
+                cov = sum((item_scores[s_idx] - mean_item) * (adj_scores[s_idx] - mean_adj) for s_idx in range(len(grades))) / (len(grades) - 1)
+                corr_corrected = cov / (statistics.stdev(item_scores) * statistics.stdev(adj_scores))
+            else:
+                corr_corrected = p_biserial
+
+            # ── 3. Distractor Efficiency ──
+            # A distractor functions if selected by at least 5% of incorrect students
+            incorrect_choices = []
+            for g in grades:
+                ans = g.answers[q_idx] if q_idx < len(g.answers) else ""
+                if ans and ans not in q_correct_keys:
+                    incorrect_choices.append(ans)
+            all_opts_q = set(report.active_options) - q_correct_keys - {"", "BLANK"}
+            func_distractors = 0
+            for opt in all_opts_q:
+                cnt = incorrect_choices.count(opt)
+                if len(grades) > 0 and (cnt / len(grades)) >= 0.05:
+                    func_distractors += 1
+            d_eff = (func_distractors / len(all_opts_q)) * 100 if all_opts_q else 0.0
+
+            # Quality classification
+            if d_index >= 0.40:
+                qc = "Excellent"
+            elif d_index >= 0.30:
+                qc = "Acceptable"
+            elif d_index >= 0.10:
+                qc = "Needs Review"
+            else:
+                qc = "Poor"
+
             report.item_psychometrics.append(ItemPsychometrics(
                 question_idx=q_idx,
                 correct_keys=sorted(list(q_correct_keys)),
                 p_value=round(p_val, 3),
                 discrimination_index=round(d_index, 3),
-                failure_rate=round(1.0 - p_val, 3)
+                failure_rate=round(1.0 - p_val, 3),
+                point_biserial=round(p_biserial, 3),
+                corrected_item_total=round(corr_corrected, 3),
+                distractor_efficiency=round(d_eff, 1),
+                quality_class=qc
             ))
+
+        # ── 4. KR-20 & Cronbach's Alpha ──
+        k = active_questions
+        p_vals = [ip.p_value for ip in report.item_psychometrics]
+        sum_pq = sum(p * (1.0 - p) for p in p_vals)
+        var_total = report.overall_stddev ** 2
+
+        if k > 1 and var_total > 0:
+            kr20 = (k / (k - 1)) * (1.0 - sum_pq / var_total)
+        else:
+            kr20 = 0.0
+
+        report.cronbach_alpha = round(kr20, 3)
+        report.kr20 = round(kr20, 3)
+
+        # ── 5. Split-Half Reliability ──
+        odd_scores = []
+        even_scores = []
+        for g_idx, g in enumerate(grades):
+            odd_sum = sum(student_item_correct[g_idx][q] for q in range(0, active_questions, 2))
+            even_sum = sum(student_item_correct[g_idx][q] for q in range(1, active_questions, 2))
+            odd_scores.append(odd_sum)
+            even_scores.append(even_sum)
+
+        if len(grades) > 1 and statistics.stdev(odd_scores) > 0 and statistics.stdev(even_scores) > 0:
+            mean_odd = statistics.mean(odd_scores)
+            mean_even = statistics.mean(even_scores)
+            cov_half = sum((odd_scores[s] - mean_odd) * (even_scores[s] - mean_even) for s in range(len(grades))) / (len(grades) - 1)
+            r_half = cov_half / (statistics.stdev(odd_scores) * statistics.stdev(even_scores))
+            split_half = (2 * r_half) / (1 + r_half) if (1 + r_half) != 0 else 0.0
+        else:
+            split_half = kr20
+
+        report.split_half_reliability = round(split_half, 3)
+
+        # ── 6. Student Analytics ──
+        for g in grades:
+            less_or_equal = sum(1 for s in all_scores if s <= g.score)
+            percentile = (less_or_equal / len(all_scores)) * 100 if all_scores else 0.0
+            z = (g.score - report.overall_mean) / report.overall_stddev if report.overall_stddev > 0 else 0.0
+
+            pct_score = (g.score / report.max_score) * 100 if report.max_score > 0 else 0.0
+            if pct_score >= 85:
+                mastery = "Mastery"
+                band = "Advanced"
+            elif pct_score >= 70:
+                mastery = "Proficient"
+                band = "Proficient"
+            elif pct_score >= 50:
+                mastery = "Developing"
+                band = "Basic"
+            else:
+                mastery = "Remedial"
+                band = "Below Basic"
+
+            num_topics = math.ceil(active_questions / 5)
+            weaknesses = []
+            for t_idx in range(num_topics):
+                q_start = t_idx * 5
+                q_end = min(active_questions, q_start + 5)
+                topic_correct = sum(student_item_correct[all_scores.index(g.score)][q] for q in range(q_start, q_end))
+                topic_total = q_end - q_start
+                if topic_total > 0 and (topic_correct / topic_total) < 0.6:
+                    weaknesses.append(f"Domain {t_idx + 1}")
+
+            report.student_analytics.append({
+                "student_id": g.student_id,
+                "score": g.score,
+                "percentile": round(percentile, 1),
+                "z_score": round(z, 2),
+                "mastery": mastery,
+                "band": band,
+                "weaknesses": ", ".join(weaknesses) if weaknesses else "None"
+            })
+
+        # ── 7. Topic-Based Analytics ──
+        num_topics = math.ceil(active_questions / 5)
+        for t_idx in range(num_topics):
+            q_start = t_idx * 5
+            q_end = min(active_questions, q_start + 5)
+            topic_items = report.item_psychometrics[q_start:q_end]
+            if topic_items:
+                t_diff = statistics.mean([ip.p_value for ip in topic_items])
+                t_disc = statistics.mean([ip.discrimination_index for ip in topic_items])
+                report.topic_analyses.append({
+                    "topic_id": f"Domain {t_idx + 1}",
+                    "items": f"Q{q_start+1}-Q{q_end}",
+                    "mean_difficulty": round(t_diff, 3),
+                    "mean_discrimination": round(t_disc, 3),
+                    "status": "Strong" if t_disc >= 0.3 else "Needs Review"
+                })
 
         # Question choice analysis - per version
         for q_idx in range(active_questions):
