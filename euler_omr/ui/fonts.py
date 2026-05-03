@@ -19,7 +19,7 @@ def load_fonts() -> QFont:
     # it and emits noisy CreateFontFaceFromHDC() errors.  Skip it unless we
     # loaded a proper TrueType replacement (e.g. Fixedsys Excelsior).
     if ttf_loaded:
-        for name in ["Fixedsys Excelsior", "FSEX300", "Fixedsys Excelsior 3.01"]:
+        for name in ["Fixedsys Excelsior 3.01", "Fixedsys Excelsior", "FSEX300"]:
             if QFontDatabase.hasFamily(name):
                 return QFont(name, 10)
 

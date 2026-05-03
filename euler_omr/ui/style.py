@@ -7,7 +7,7 @@ def get_stylesheet() -> str:
 QWidget {
     background-color: #041010;
     color: #f0f6f6;
-    font-family: "Fixedsys Excelsior", "FSEX300", "Courier New", monospace;
+    font-family: "Fixedsys Excelsior 3.01", "Fixedsys Excelsior", "Courier New", monospace;
     font-size: 13px;
 }
 
