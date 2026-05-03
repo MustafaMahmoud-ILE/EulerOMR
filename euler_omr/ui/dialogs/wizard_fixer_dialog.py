@@ -200,6 +200,17 @@ class WizardFixerDialog(QDialog):
             self.lbl_ver_crop.deleteLater()
             self.lbl_ver_crop = None
 
+        issue_fields = {i.field_name for i in r.issues}
+
+        has_id_issue = any(f == "student_id" or f.startswith("id_") or f.startswith("student_id_") for f in issue_fields)
+        has_ver_issue = any(f == "version" or f.startswith("version_") for f in issue_fields)
+        has_ans_issue = any(f.startswith("q_") for f in issue_fields)
+
+        # Only show the section that has the issue
+        self.id_group.setVisible(has_id_issue)
+        self.ver_group.setVisible(has_ver_issue)
+        self.ans_group.setVisible(has_ans_issue)
+
         # Extract current page image for cropping
         page_img = self._get_page_image(r.page_no)
 
@@ -207,30 +218,32 @@ class WizardFixerDialog(QDialog):
             h, w = page_img.shape[:2]
 
             # Tight Table crop: [433:688, 157:805]
-            table_crop = page_img[433:688, 157:805]
-            self.lbl_table_crop = QLabel()
-            self.lbl_table_crop.setPixmap(self._np_to_pixmap(table_crop))
-            self.lbl_table_crop.setStyleSheet("border: none; background: transparent;")
-            self.id_layout.insertWidget(0, self.lbl_table_crop)
+            if has_id_issue:
+                table_crop = page_img[433:688, 157:805]
+                self.lbl_table_crop = QLabel()
+                self.lbl_table_crop.setPixmap(self._np_to_pixmap(table_crop))
+                self.lbl_table_crop.setStyleSheet("border: none; background: transparent;")
+                self.id_layout.insertWidget(0, self.lbl_table_crop)
 
-            # Dynamic Tight ID crop based on digits
-            id_digits = len(r.student_id) if r.student_id else 14
-            id_x_start = 1479 - (id_digits - 1) * 47.24
-            id_x_min = int(max(0, id_x_start - 35))
-            id_x_max = int(min(w, 1515))
+                # Dynamic Tight ID crop based on digits
+                id_digits = len(r.student_id) if r.student_id else 14
+                id_x_start = 1479 - (id_digits - 1) * 47.24
+                id_x_min = int(max(0, id_x_start - 35))
+                id_x_max = int(min(w, 1515))
 
-            id_crop = page_img[268:660, id_x_min:id_x_max]
-            self.lbl_id_crop = QLabel()
-            self.lbl_id_crop.setPixmap(self._np_to_pixmap(id_crop))
-            self.lbl_id_crop.setStyleSheet("border: none; background: transparent;")
-            self.id_layout.insertWidget(1, self.lbl_id_crop)
+                id_crop = page_img[268:660, id_x_min:id_x_max]
+                self.lbl_id_crop = QLabel()
+                self.lbl_id_crop.setPixmap(self._np_to_pixmap(id_crop))
+                self.lbl_id_crop.setStyleSheet("border: none; background: transparent;")
+                self.id_layout.insertWidget(1, self.lbl_id_crop)
 
             # Tight Version crop: [755:820, 157:565]
-            ver_crop = page_img[755:820, 157:565]
-            self.lbl_ver_crop = QLabel()
-            self.lbl_ver_crop.setPixmap(self._np_to_pixmap(ver_crop))
-            self.lbl_ver_crop.setStyleSheet("border: none; background: transparent;")
-            self.ver_layout.insertWidget(0, self.lbl_ver_crop)
+            if has_ver_issue:
+                ver_crop = page_img[755:820, 157:565]
+                self.lbl_ver_crop = QLabel()
+                self.lbl_ver_crop.setPixmap(self._np_to_pixmap(ver_crop))
+                self.lbl_ver_crop.setStyleSheet("border: none; background: transparent;")
+                self.ver_layout.insertWidget(0, self.lbl_ver_crop)
 
         # Populate ID
         self.txt_id.setText(r.student_id)
@@ -247,17 +260,19 @@ class WizardFixerDialog(QDialog):
         for i in reversed(range(self.ans_layout.count())):
             self.ans_layout.itemAt(i).widget().deleteLater()
 
-        self._question_combos = []
-        issue_fields = {i.field_name for i in r.issues}
+        self._question_combos = {}
 
         for q_idx in range(self._active_questions):
             q_field = f"q_{q_idx + 1}"
             is_problematic = q_field in issue_fields
 
+            # Show ONLY the specific question sections that have the issue
+            if not is_problematic:
+                continue
+
             q_layout = QHBoxLayout()
             lbl = QLabel(f"Question {q_idx + 1}:")
-            if is_problematic:
-                lbl.setStyleSheet("color: #ffb703; font-weight: bold;")
+            lbl.setStyleSheet("color: #ffb703; font-weight: bold;")
             q_layout.addWidget(lbl)
 
             cmb = QComboBox()
@@ -273,7 +288,7 @@ class WizardFixerDialog(QDialog):
                 cmb.setCurrentIndex(0)
 
             q_layout.addWidget(cmb)
-            self._question_combos.append(cmb)
+            self._question_combos[q_idx] = cmb
 
             # Show crop for this question
             if page_img is not None:
@@ -330,7 +345,7 @@ class WizardFixerDialog(QDialog):
         r.version = ver
 
         # Read Question corrections
-        for q_idx, cmb in enumerate(self._question_combos):
+        for q_idx, cmb in self._question_combos.items():
             text = cmb.currentText()
             if text == "BLANK":
                 if q_idx < len(r.answers):
@@ -353,7 +368,7 @@ class WizardFixerDialog(QDialog):
             elif issue.issue_type in (IssueType.MISSING_ANSWER, IssueType.MULTI_ANSWER):
                 q_num = int(issue.field_name.split("_")[1])
                 q_idx = q_num - 1
-                if q_idx < len(self._question_combos):
+                if q_idx in self._question_combos:
                     issue.resolved = True
                     issue.resolution = self._question_combos[q_idx].currentText()
 
