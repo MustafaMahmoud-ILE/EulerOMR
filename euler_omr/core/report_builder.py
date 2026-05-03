@@ -19,327 +19,394 @@ class ReportBuilder:
         tmp = tempfile.mkdtemp(prefix="euler_report_")
         try:
             # ── Chart 1: Overall histogram ──
-            fig, ax = plt.subplots(figsize=(8, 3.8))
+            fig, ax = plt.subplots(figsize=(8, 4))
             bins = range(0, report.max_score + 2)
-            ax.hist(report.overall_scores, bins=bins, color="#2eb891",
-                    edgecolor="#041010", alpha=0.85, rwidth=0.85)
-            ax.set_xlabel("Score", fontsize=11, fontweight="bold")
-            ax.set_ylabel("Frequency", fontsize=11, fontweight="bold")
-            ax.set_title("Overall Grade Distribution", fontsize=13, fontweight="bold", color="#05604b")
+            ax.hist(report.overall_scores, bins=bins, color="#117A65",
+                    edgecolor="#1B4F72", alpha=0.8, rwidth=0.85)
+            ax.set_xlabel("Score", fontsize=11, fontweight="bold", color="#1B4F72")
+            ax.set_ylabel("Number of Students", fontsize=11, fontweight="bold", color="#1B4F72")
+            ax.set_title("Overall Grade Distribution", fontsize=13, fontweight="bold", color="#1B4F72")
             ax.set_xticks(range(0, report.max_score + 1))
             ax.grid(axis='y', linestyle='--', alpha=0.5)
             hist_path = os.path.join(tmp, "histogram.png")
             fig.savefig(hist_path, dpi=150, bbox_inches="tight")
             plt.close(fig)
 
-            # ── Chart 2: Per-version boxplot ──
+            # ── Chart 2: Version mean comparison bar ──
             if report.version_stats:
-                fig, ax = plt.subplots(figsize=(8, 3.8))
-                data = [vs.scores for vs in report.version_stats]
-                labels = [vs.version for vs in report.version_stats]
-                bp = ax.boxplot(data, labels=labels, patch_artist=True, widths=0.5)
-                for patch in bp["boxes"]:
-                    patch.set_facecolor("#e8f4f0")
-                    patch.set_edgecolor("#05604b")
-                    patch.set_linewidth(1.5)
-                for element in ['whiskers', 'caps', 'medians']:
-                    plt.setp(bp[element], color='#05604b', linewidth=1.5)
-                ax.set_xlabel("Version", fontsize=11, fontweight="bold")
-                ax.set_ylabel("Score", fontsize=11, fontweight="bold")
-                ax.set_title("Per-Version Score Distribution", fontsize=13, fontweight="bold", color="#05604b")
-                ax.grid(axis='y', linestyle='--', alpha=0.5)
-                box_path = os.path.join(tmp, "boxplot.png")
-                fig.savefig(box_path, dpi=150, bbox_inches="tight")
-                plt.close(fig)
-
-            # ── Chart 3: Version mean comparison bar ──
-            if report.version_stats:
-                fig, ax = plt.subplots(figsize=(8, 3.8))
+                fig, ax = plt.subplots(figsize=(8, 4))
                 vers = [vs.version for vs in report.version_stats]
                 means = [vs.mean for vs in report.version_stats]
-                bars = ax.bar(vers, means, color="#05604b", edgecolor="#041010", width=0.5)
-                ax.set_xlabel("Version", fontsize=11, fontweight="bold")
-                ax.set_ylabel("Mean Score", fontsize=11, fontweight="bold")
-                ax.set_title("Version Mean Comparison", fontsize=13, fontweight="bold", color="#05604b")
-                ax.axhline(y=report.overall_mean, color="#e63946", linestyle="--",
-                           linewidth=2, label=f"Overall Mean ({report.overall_mean})")
+                bars = ax.bar(vers, means, color="#117A65", edgecolor="#1B4F72", alpha=0.7, width=0.6)
+                ax.set_xlabel("Version", fontsize=11, fontweight="bold", color="#1B4F72")
+                ax.set_ylabel("Mean Score", fontsize=11, fontweight="bold", color="#1B4F72")
+                ax.set_title("Version Mean Score Comparison", fontsize=13, fontweight="bold", color="#1B4F72")
+                ax.axhline(y=report.overall_mean, color="red", linestyle="--", linewidth=2,
+                           label=f"Overall Mean ({report.overall_mean})")
                 ax.grid(axis='y', linestyle='--', alpha=0.5)
                 ax.legend()
                 bar_path = os.path.join(tmp, "version_bar.png")
                 fig.savefig(bar_path, dpi=150, bbox_inches="tight")
                 plt.close(fig)
 
-            # ── Chart 4: Per-question choice distribution (all students) ──
-            if report.question_choices_overall:
-                n_q = len(report.question_choices_overall)
-                rows_per_page = min(n_q, 6)
-                q_chart_paths = []
-                for page_start in range(0, n_q, rows_per_page):
-                    page_end = min(page_start + rows_per_page, n_q)
-                    n_plots = page_end - page_start
-                    fig, axes = plt.subplots(n_plots, 1, figsize=(8, 2.2 * n_plots))
-                    if n_plots == 1:
-                        axes = [axes]
-                    for ax_idx, q_idx in enumerate(range(page_start, page_end)):
-                        qco = report.question_choices_overall[q_idx]
-                        options = sorted([k for k in qco.option_frequencies.keys() if k != "BLANK"])
-                        if "BLANK" in qco.option_frequencies:
-                            options.append("BLANK")
-                        counts = [qco.option_frequencies.get(o, 0) for o in options]
-                        pcts = [c / qco.total_responses * 100 if qco.total_responses else 0 for c in counts]
-                        bars = axes[ax_idx].barh(options, pcts, color="#2eb891", edgecolor="#041010", height=0.55)
-                        axes[ax_idx].set_xlim(0, 100)
-                        axes[ax_idx].set_title(f"Question {q_idx + 1} -- Choice Distribution", fontsize=11, fontweight="bold", loc="left", color="#05604b")
-                        axes[ax_idx].grid(axis='x', linestyle='--', alpha=0.5)
-                        for bar, p, c in zip(bars, pcts, counts):
-                            axes[ax_idx].text(bar.get_width() + 1, bar.get_y() + bar.get_height()/2,
-                                              f"{c} ({p:.1f}%)", va='center', fontsize=9, fontweight="bold")
-                    plt.tight_layout()
-                    chart_name = f"q_choices_{page_start}.png"
-                    chart_path = os.path.join(tmp, chart_name)
-                    fig.savefig(chart_path, dpi=150, bbox_inches="tight")
-                    plt.close(fig)
-                    q_chart_paths.append(chart_name)
-
             _log("Charts generated", "INFO")
 
             # ═══════════════════════════════════════════════════════════
-            #  Build Premium LaTeX report
+            #  Build LaTeX report using exact reporttemplate.tex style
             # ═══════════════════════════════════════════════════════════
             ms = report.max_score
             pct_mean = round(report.overall_mean / ms * 100, 1) if ms > 0 else 0
+            modes = report.overall_mode
 
             lines = [
-                r"\documentclass[a4paper,10pt]{article}",
-                r"\usepackage[margin=1.5cm]{geometry}",
-                r"\usepackage{graphicx}",
+                r"\documentclass[12pt, a4paper]{article}",
+                "",
+                r"% ─── Packages ────────────────────────────────────────────────────────────────",
+                r"\usepackage[margin=2.5cm]{geometry}",
                 r"\usepackage{booktabs}",
+                r"\usepackage{array}",
                 r"\usepackage{xcolor}",
-                r"\usepackage{longtable}",
-                r"\usepackage{multicol}",
+                r"\usepackage{colortbl}",
+                r"\usepackage{graphicx}",
+                r"\usepackage{pgfplots}",
+                r"\usepackage{pgfplotstable}",
+                r"\usepackage{tikz}",
+                r"\usepackage{amsmath}",
+                r"\usepackage{hyperref}",
                 r"\usepackage{fancyhdr}",
-                r"\usepackage{amssymb}",
-                r"\usepackage{sectsty}",
-                r"\definecolor{euler}{HTML}{2EB891}",
-                r"\definecolor{darkeuler}{HTML}{05604B}",
-                r"\definecolor{lighteuler}{HTML}{E8F4F0}",
-                r"\sectionfont{\color{darkeuler}\fontfamily{phv}\selectfont}",
+                r"\usepackage{titlesec}",
+                r"\usepackage{multirow}",
+                r"\usepackage{enumitem}",
+                r"\usepackage{tcolorbox}",
+                r"\usepackage{float}",
+                r"\usepackage{caption}",
+                "",
+                r"\pgfplotsset{compat=1.18}",
+                "",
+                r"% ─── Colors ──────────────────────────────────────────────────────────────────",
+                r"\definecolor{primary}{HTML}{1B4F72}",
+                r"\definecolor{accent}{HTML}{117A65}",
+                r"\definecolor{lightgray}{HTML}{F2F3F4}",
+                r"\definecolor{medgray}{HTML}{BDC3C7}",
+                r"\definecolor{danger}{HTML}{C0392B}",
+                r"\definecolor{warning}{HTML}{D4AC0D}",
+                r"\definecolor{success}{HTML}{1E8449}",
+                r"\definecolor{rowA}{HTML}{EBF5FB}",
+                r"\definecolor{rowB}{HTML}{FFFFFF}",
+                "",
+                r"% ─── Page Style ──────────────────────────────────────────────────────────────",
                 r"\pagestyle{fancy}",
                 r"\fancyhf{}",
-                r"\fancyhead[R]{\color{darkeuler}\textbf{Euler OMR Statistical Report}}",
-                r"\fancyfoot[C]{\color{darkeuler}\textbf{\thepage}}",
+                r"\fancyhead[L]{\small\color{primary}\textbf{Euler OMR} — Statistical Analysis Report}",
+                r"\fancyhead[R]{\small\color{medgray}Generated by Euler OMR Grading System}",
+                r"\fancyfoot[C]{\small\color{medgray}\thepage}",
+                r"\renewcommand{\headrulewidth}{0.4pt}",
+                r"\renewcommand{\footrulewidth}{0pt}",
+                "",
+                r"% ─── Section Styling ─────────────────────────────────────────────────────────",
+                r"\titleformat{\section}",
+                r"{\large\bfseries\color{primary}}",
+                r"{\thesection.}{0.5em}{}[\titrule]",
+                "",
+                r"\titleformat{\subsection}",
+                r"{\normalsize\bfseries\color{accent}}",
+                r"{\thesubsection}{0.5em}{}",
+                "",
+                r"% ─── Hyperlinks ──────────────────────────────────────────────────────────────",
+                r"\hypersetup{",
+                r"	colorlinks=true,",
+                r"	linkcolor=primary,",
+                r"	urlcolor=accent",
+                r"}",
+                "",
+                r"% ─── Summary Box ─────────────────────────────────────────────────────────────",
+                r"\tcbuselibrary{skins, breakable}",
+                r"\newtcolorbox{summarybox}{",
+                r"	enhanced,",
+                r"	colback=lightgray,",
+                r"	colframe=primary,",
+                r"	boxrule=1pt,",
+                r"	arc=4pt,",
+                r"	left=8pt, right=8pt, top=6pt, bottom=6pt,",
+                r"	title={\bfseries\color{white} Quick Summary},",
+                r"	fonttitle=\bfseries,",
+                r"	coltitle=white,",
+                r"	attach boxed title to top left={yshift=-2mm, xshift=4mm},",
+                r"	boxed title style={colback=primary, arc=3pt}",
+                r"}",
+                "",
+                r"\newtcolorbox{statbox}[1]{",
+                r"	enhanced,",
+                r"	colback=#1!10,",
+                r"	colframe=#1,",
+                r"	boxrule=0.8pt,",
+                r"	arc=3pt,",
+                r"	left=6pt, right=6pt, top=4pt, bottom=4pt",
+                r"}",
+                "",
+                r"% ─── Document ─────────────────────────────────────────────────────────────────",
                 r"\begin{document}",
+                r"	",
+                r"	% ── Title Page ────────────────────────────────────────────────────────────────",
+                r"	\begin{titlepage}",
+                r"		\centering",
+                r"		\vspace*{3cm}",
+                r"		{\Huge\bfseries\color{primary} Euler OMR\par}",
+                r"		\vspace{0.4cm}",
+                r"		{\LARGE\color{accent} Statistical Analysis Report\par}",
+                r"		\vspace{1cm}",
+                r"		\textcolor{medgray}{\rule{0.6\textwidth}{0.6pt}}",
+                r"		\vspace{0.8cm}",
+                r"		",
+                r"		\begin{tcolorbox}[",
+                r"			width=0.65\textwidth,",
+                r"			colback=lightgray,",
+                r"			colframe=medgray,",
+                r"			arc=4pt,",
+                r"			boxrule=0.6pt",
+                r"			]",
+                r"			\centering",
+                r"			\begin{tabular}{rl}",
+                f"				\\textbf{{Total Students:}} & {report.total_students} \\\\[4pt]",
+                f"				\\textbf{{Overall Mean:}}   & {report.overall_mean} / {ms} \\quad ({pct_mean}\\%) \\\\[4pt]",
+                f"				\\textbf{{Median:}}         & {report.overall_median} \\\\[4pt]",
+                f"				\\textbf{{Mode:}}           & {modes} \\\\[4pt]",
+                f"				\\textbf{{Std Dev:}}        & {report.overall_stddev} \\\\[4pt]",
+                f"				\\textbf{{Score Range:}}    & {report.overall_min} -- {report.overall_max} \\\\",
+                r"			\end{tabular}",
+                r"		\end{tcolorbox}",
+                r"		",
+                r"		\vfill",
+                r"		{\small\color{medgray} Generated by Euler OMR Grading System}",
+                r"	\end{titlepage}",
                 "",
-                r"\begin{center}",
-                r"{\Huge\bfseries\color{darkeuler} Euler OMR Analysis Report}\\[2mm]",
-                r"{\large\color{euler}\textbf{Advanced Academic Analytics & Grading Insights}}\\[1mm]",
-                r"{\small Generated by Euler OMR Pipeline}",
-                r"\end{center}",
-                r"\noindent\rule{\textwidth}{1.5pt}",
-                r"\vspace{3mm}",
-                "",
+                r"	% ── Section 1 ────────────────────────────────────────────────────────────────",
+                r"	\section{Overall Statistics (All Students, All Versions)}",
+                r"	\subsection{Descriptive Statistics}",
+                r"	",
+                r"	\begin{center}",
+                r"		\begin{tcolorbox}[",
+                r"			width=0.7\textwidth,",
+                r"			colback=rowA,",
+                r"			colframe=primary,",
+                r"			arc=4pt,",
+                r"			boxrule=0.8pt",
+                r"			]",
+                r"			\centering",
+                r"			\renewcommand{\arraystretch}{1.4}",
+                r"			\begin{tabular}{>{\bfseries}l r}",
+                r"				\toprule",
+                r"				\multicolumn{1}{c}{\color{primary}\textbf{Statistic}} &",
+                r"				\multicolumn{1}{c}{\color{primary}\textbf{Value}} \\",
+                r"				\midrule",
+                f"				Total Students  & {report.total_students} \\\\",
+                f"				Mean            & {report.overall_mean} / {ms} \\quad ({pct_mean}\\%) \\\\",
+                f"				Median          & {report.overall_median} \\\\",
+                f"				Mode            & {modes} \\\\",
+                f"				Std Deviation   & {report.overall_stddev} \\\\",
+                f"				Range           & {report.overall_min} -- {report.overall_max} \\\\",
+                r"				\bottomrule",
+                r"			\end{tabular}",
+                r"		\end{tcolorbox}",
+                r"	\end{center}",
+                r"	",
+                r"	\subsection{Score Distribution}",
+                r"	\begin{table}[H]",
+                r"		\centering",
+                r"		\caption{Score frequency across all students and versions}",
+                r"		\renewcommand{\arraystretch}{1.35}",
+                r"		\begin{tabular}{>{\centering\arraybackslash}m{2cm}>{\centering\arraybackslash}m{3cm}>{\centering\arraybackslash}m{3cm}}",
+                r"			\toprule",
+                r"			\rowcolor{primary}",
+                r"			\color{white}\textbf{Score} & \color{white}\textbf{Students} & \color{white}\textbf{Percentage} \\ \midrule",
             ]
-
-            # ── Section 1: Overall Statistics ──
-            modes = report.overall_mode
+            for i, sd in enumerate(report.score_distribution):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                lines.append(f"			{bg}{sd.score} / {ms} & {sd.count} & {sd.percentage}\\% \\\\")
             lines += [
-                r"\section*{1. Overall Statistics (All Students, All Versions)}",
-                r"\begin{multicols}{2}",
-                r"\begin{tabular}{ll}",
-                f"Total Students & \\textbf{{{report.total_students}}} \\\\",
-                f"Mean & \\textbf{{{report.overall_mean} / {ms} ({pct_mean}\\%)}} \\\\",
-                f"Median & \\textbf{{{report.overall_median}}} \\\\",
-                f"Mode & \\textbf{{{modes}}} \\\\",
-                f"Std Dev & \\textbf{{{report.overall_stddev}}} \\\\",
-                f"Range & \\textbf{{{report.overall_min} -- {report.overall_max}}} \\\\",
-                r"\end{tabular}",
-                r"\columnbreak",
-                r"\noindent\textbf{Score Distribution}\\[1mm]",
-                r"\begin{tabular}{crr}",
-                r"\toprule",
-                r"Score & Students & Percentage \\ \midrule",
+                r"			\bottomrule",
+                r"		\end{tabular}",
+                r"	\end{table}",
+                "",
+                r"	\begin{figure}[H]",
+                r"		\centering",
+                r"		\includegraphics[width=0.85\textwidth]{histogram.png}",
+                r"		\caption{Overall score distribution chart}",
+                r"	\end{figure}",
+                "",
+                r"	% ── Section 2 ────────────────────────────────────────────────────────────────",
+                r"	\section{Per-Version Statistics}",
+                r"	\begin{table}[H]",
+                r"		\centering",
+                r"		\caption{Descriptive statistics broken down by exam version}",
+                r"		\renewcommand{\arraystretch}{1.35}",
+                r"		\begin{tabular}{cccccccc}",
+                r"			\toprule",
+                r"			\rowcolor{primary}",
+                r"			\color{white}\textbf{Version} &",
+                r"			\color{white}\textbf{N} &",
+                r"			\color{white}\textbf{Mean} &",
+                r"			\color{white}\textbf{\%} &",
+                r"			\color{white}\textbf{Median} &",
+                r"			\color{white}\textbf{Std Dev} &",
+                r"			\color{white}\textbf{Min} &",
+                r"			\color{white}\textbf{Max} \\ \midrule",
             ]
-            for sd in report.score_distribution:
-                lines.append(f"{sd.score}/{ms} & {sd.count} & {sd.percentage}\\% \\\\")
+            for i, vs in enumerate(report.version_stats):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                pct = round(vs.mean / ms * 100, 1) if ms > 0 else 0
+                lines.append(f"			{bg}{vs.version} & {vs.count} & {vs.mean} & {pct}\\% & {vs.median} & {vs.stddev} & {vs.min_score} & {vs.max_score_val} \\\\")
             lines += [
-                r"\bottomrule",
-                r"\end{tabular}",
-                r"\end{multicols}",
+                r"			\bottomrule",
+                r"		\end{tabular}",
+                r"	\end{table}",
                 "",
-                r"\begin{center}\includegraphics[width=0.82\textwidth]{histogram.png}\end{center}",
-                r"\vspace{4mm}",
+                r"	\begin{figure}[H]",
+                r"		\centering",
+                r"		\includegraphics[width=0.85\textwidth]{version_bar.png}",
+                r"		\caption{Mean score comparison across exam versions}",
+                r"	\end{figure}",
+                "",
+                r"	% ── Section 3 ────────────────────────────────────────────────────────────────",
+                r"	\section{Answer Choice Analysis by Question}",
+                r"	\begin{table}[H]",
+                r"		\centering",
+                r"		\caption{Answer choice distribution across all students}",
+                r"		\renewcommand{\arraystretch}{1.35}",
+                r"		\begin{tabular}{cccccc}",
+                r"			\toprule",
+                r"			\rowcolor{primary}",
+                r"			\color{white}\textbf{Q} & \color{white}\textbf{A} & \color{white}\textbf{B} & \color{white}\textbf{C} & \color{white}\textbf{D} & \color{white}\textbf{Blank} \\ \midrule",
+            ]
+            for i, qco in enumerate(report.question_choices_overall):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                freq = qco.option_frequencies
+                opts = []
+                for o in ["A", "B", "C", "D"]:
+                    c = freq.get(o, 0)
+                    p = round(c / qco.total_responses * 100, 1) if qco.total_responses > 0 else 0
+                    opts.append(f"{c} ({p}\\%)")
+                blank_cnt = freq.get("BLANK", 0)
+                blank_p = round(blank_cnt / qco.total_responses * 100, 1) if qco.total_responses > 0 else 0
+                blank_str = f"{blank_cnt} ({blank_p}\\%)" if blank_cnt > 0 else "--"
+                lines.append(f"			{bg}Q{i+1} & " + " & ".join(opts) + f" & {blank_str} \\\\")
+            lines += [
+                r"			\bottomrule",
+                r"		\end{tabular}",
+                r"	\end{table}",
+                "",
+                r"	% ── Section 4 ────────────────────────────────────────────────────────────────",
+                r"	\newpage",
+                r"	\section{Answer Choice Analysis by Version}",
                 "",
             ]
-
-            # ── Section 2: Per-Version Statistics ──
-            if report.version_stats:
-                lines += [
-                    r"\section*{2. Per-Version Statistics}",
-                    r"\begin{center}",
-                    r"\begin{tabular}{lcrrrrrr}",
-                    r"\toprule",
-                    r"\textbf{Version} & \textbf{N} & \textbf{Mean} & \textbf{\%} & \textbf{Median} & \textbf{Std Dev} & \textbf{Min} & \textbf{Max} \\ \midrule",
-                ]
-                for vs in report.version_stats:
-                    pct = round(vs.mean / ms * 100, 1) if ms > 0 else 0
-                    lines.append(
-                        f"{vs.version} & {vs.count} & {vs.mean} & {pct}\\% & "
-                        f"{vs.median} & {vs.stddev} & {vs.min_score} & {vs.max_score_val} \\\\"
-                    )
-                lines += [
-                    r"\bottomrule",
-                    r"\end{tabular}",
-                    r"\end{center}",
-                    "",
-                    r"\begin{center}\includegraphics[width=0.82\textwidth]{boxplot.png}\end{center}",
-                    r"\vspace{4mm}",
-                    "",
-                ]
-
-            # ── Section 3: Answer Choice Analysis by Question (All Students) ──
-            if report.question_choices_overall:
-                lines += [
-                    r"\section*{3. Answer Choice Analysis by Question (All Students)}",
-                    "",
-                ]
-                for qco in report.question_choices_overall:
-                    q_idx = qco.question_idx
-                    lines.append(f"\\noindent\\textbf{{Question {q_idx + 1} Responses Summary:}}\\\\[1mm]")
-                    options = sorted([k for k in qco.option_frequencies.keys() if k != "BLANK"])
-                    if "BLANK" in qco.option_frequencies:
-                        options.append("BLANK")
-                    lines.append(r"\begin{tabular}{lrr}\toprule")
-                    lines.append(r"Option & Count & Percentage \\ \midrule")
-                    for opt in options:
-                        cnt = qco.option_frequencies.get(opt, 0)
-                        pct = round(cnt / qco.total_responses * 100, 1) if qco.total_responses > 0 else 0.0
-                        lines.append(f"{opt} & {cnt} & {pct}\\% \\\\")
-                    lines.append(r"\bottomrule\end{tabular}\vspace{3mm}\\\\")
-                    lines.append("")
-
-                for chart_name in q_chart_paths:
-                    lines.append(f"\\begin{{center}}\\includegraphics[width=0.85\\textwidth]{{{chart_name}}}\\end{{center}}")
-                    lines.append("")
-
-            # ── Section 4: Answer Choice Analysis × Version ──
-            if report.question_choices_by_version:
-                lines += [
-                    r"\section*{4. Answer Choice Analysis by Version}",
-                    "",
-                ]
-                opts = report.active_options if report.active_options else ["A", "B", "C", "D"]
-                for qcv in report.question_choices_by_version:
-                    q_idx = qcv.question_idx
-                    lines.append(f"\\noindent\\textbf{{Question {q_idx + 1} cross-tabulation}}\\\\[1mm]")
-                    header_opts = " & ".join(opts)
-                    col_spec = "c" + "r" * len(opts)
-                    lines.append(f"\\begin{{tabular}}{{{col_spec}}}")
-                    lines.append(r"\toprule")
-                    lines.append(f"\\textbf{{Version}} & {header_opts} \\\\ \\midrule")
-                    for ver in sorted(qcv.version_option_pct.keys()):
-                        pct_map = qcv.version_option_pct[ver]
-                        vals = " & ".join(f"{int(pct_map.get(o, 0))}\\%" for o in opts)
-                        lines.append(f"{ver} & {vals} \\\\")
-                    lines.append(r"\bottomrule")
-                    lines.append(r"\end{tabular}")
-                    lines.append(r"\vspace{3mm}")
-                    lines.append("")
-
-            # ── Section 5: Version Comparison - Difficulty Ranking ──
-            if report.version_ranking:
-                lines += [
-                    r"\section*{5. Version Comparison -- Difficulty Ranking}",
-                    r"\noindent Ranked by Mean Score (Easiest $\rightarrow$ Hardest)\\[2mm]",
-                    r"\begin{tabular}{clrl}",
-                    r"\toprule",
-                    r"Rank & Version & Mean & Difficulty \\ \midrule",
-                ]
-                for rank_idx, vr in enumerate(report.version_ranking):
-                    lines.append(f"{rank_idx + 1} & {vr.version} & {vr.mean} & {vr.difficulty_label} \\\\")
-                lines += [
-                    r"\bottomrule",
-                    r"\end{tabular}",
-                    r"\vspace{4mm}",
-                    "",
-                ]
-
-                # ANOVA results
-                lines += [
-                    r"\noindent\textbf{ANOVA Test Results (Statistical Equivalence)}\\[1mm]",
-                    f"\\quad F-statistic: {report.anova_f}\\\\",
-                    f"\\quad p-value: {report.anova_p}\\\\",
-                ]
-                if report.anova_p < 0.05:
-                    lines.append(r"\quad \textbf{Verdict:} Significant difference found ($p < 0.05$). The versions are not fully equivalent in difficulty.\\")
-                else:
-                    lines.append(r"\quad \textbf{Verdict:} No significant difference found ($p \geq 0.05$). The versions are equivalent.\\")
-
-                lines += [
-                    r"\vspace{2mm}",
-                    r"\noindent\textbf{Kruskal-Wallis Test (Non-parametric)}\\[1mm]",
-                    f"\\quad H-statistic: {report.kruskal_h}\\\\",
-                    f"\\quad p-value: {report.kruskal_p}\\\\",
-                ]
-                if report.kruskal_p < 0.05:
-                    lines.append(r"\quad \textbf{Verdict:} Non-parametric test also indicates significant differences.\\")
-                else:
-                    lines.append(r"\quad \textbf{Verdict:} Non-parametric test confirms no significant differences.\\")
-
-                # Outlier versions
-                if report.version_outliers:
-                    lines += [
-                        r"\vspace{3mm}",
-                        r"\noindent\textbf{Outlier Versions Identification}\\[1mm]",
-                        f"\\quad Grand Mean across versions: {report.grand_mean_versions}\\\\",
-                        f"\\quad Std of version means: {report.std_version_means}\\\\[2mm]",
-                        r"\begin{tabular}{lrrl}",
-                        r"\toprule",
-                        r"Version & Mean & z-score & Note \\ \midrule",
-                    ]
-                    for vo in report.version_outliers:
-                        sign = "+" if vo.z_score >= 0 else ""
-                        note_escaped = vo.label.replace("←", r"$\leftarrow$")
-                        lines.append(f"{vo.version} & {vo.mean} & {sign}{vo.z_score} & {note_escaped} \\\\")
-                    lines += [
-                        r"\bottomrule",
-                        r"\end{tabular}",
-                        "",
-                    ]
-
-                lines.append(r"\begin{center}\includegraphics[width=0.85\textwidth]{version_bar.png}\end{center}")
+            for qcv in report.question_choices_by_version:
+                q_idx = qcv.question_idx
+                lines.append(f"	\\subsection{{Question {q_idx + 1}}}")
+                lines.append(r"	\begin{table}[H]")
+                lines.append(r"		\centering")
+                lines.append(r"		\renewcommand{\arraystretch}{1.3}")
+                lines.append(r"		\begin{tabular}{ccccc}")
+                lines.append(r"			\toprule")
+                lines.append(r"			\rowcolor{primary}")
+                lines.append(r"			\color{white}\textbf{Version} & \color{white}\textbf{A} & \color{white}\textbf{B} & \color{white}\textbf{C} & \color{white}\textbf{D} \\ \midrule")
+                for i, ver in enumerate(sorted(qcv.version_option_pct.keys())):
+                    bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                    pct_map = qcv.version_option_pct[ver]
+                    vals = " & ".join(f"{int(pct_map.get(o, 0))}\\%" for o in ["A", "B", "C", "D"])
+                    lines.append(f"			{bg}{ver} & {vals} \\\\")
+                lines.append(r"			\bottomrule")
+                lines.append(r"		\end{tabular}")
+                lines.append(r"	\end{table}")
                 lines.append("")
-
-            # ── Section 6: Quick Summary ──
+            lines += [
+                r"	% ── Section 5 ────────────────────────────────────────────────────────────────",
+                r"	\section{Version Comparison — Difficulty Ranking}",
+                r"	\begin{table}[H]",
+                r"		\centering",
+                r"		\caption{Versions ranked from easiest to hardest by mean score}",
+                r"		\renewcommand{\arraystretch}{1.4}",
+                r"		\begin{tabular}{cccc}",
+                r"			\toprule",
+                r"			\rowcolor{primary}",
+                r"			\color{white}\textbf{Rank} & \color{white}\textbf{Version} & \color{white}\textbf{Mean} & \color{white}\textbf{Difficulty} \\ \midrule",
+            ]
+            for i, vr in enumerate(report.version_ranking):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                lines.append(f"			{bg}{i+1} & {vr.version} & {vr.mean} & {vr.difficulty_label} \\\\")
+            lines += [
+                r"			\bottomrule",
+                r"		\end{tabular}",
+                r"	\end{table}",
+                "",
+                r"	\subsection{Statistical Equivalence Tests}",
+                r"	\begin{table}[H]",
+                r"		\centering",
+                r"		\caption{ANOVA and Kruskal-Wallis tests for version equivalence}",
+                r"		\renewcommand{\arraystretch}{1.4}",
+                r"		\begin{tabular}{lccc}",
+                r"			\toprule",
+                r"			\rowcolor{primary}",
+                r"			\color{white}\textbf{Test} & \color{white}\textbf{Statistic} & \color{white}\textbf{p-value} & \color{white}\textbf{Result} \\ \midrule",
+                f"			\\rowcolor{{rowA}} ANOVA (parametric)        & $F = {report.anova_f}$ & ${report.anova_p}$ & " + (r"\textcolor{danger}{\textbf{Significant diff}}" if report.anova_p < 0.05 else r"\textcolor{success}{\textbf{No sig diff}}") + r" \\",
+                f"			\\rowcolor{{rowB}} Kruskal-Wallis (non-param) & $H = {report.kruskal_h}$ & ${report.kruskal_p}$ & " + (r"\textcolor{danger}{\textbf{Significant diff}}" if report.kruskal_p < 0.05 else r"\textcolor{success}{\textbf{No sig diff}}") + r" \\",
+                r"			\bottomrule",
+                r"		\end{tabular}",
+                r"	\end{table}",
+                "",
+                r"	\begin{tcolorbox}[colback=danger!5, colframe=danger, arc=3pt, boxrule=0.8pt]",
+                r"		\textbf{Interpretation:} Both tests confirm whether versions are \textbf{statistically",
+                f"		equivalent}} ($p \\ge 0.05$ or $p < 0.05$). Currently, p-value = {report.anova_p}.",
+                r"	\end{tcolorbox}",
+                "",
+                r"	\subsection{Outlier Versions (Z-Score Analysis)}",
+                r"	\begin{table}[H]",
+                r"		\centering",
+                r"		\caption{Z-scores relative to grand mean and std dev}",
+                r"		\renewcommand{\arraystretch}{1.4}",
+                r"		\begin{tabular}{cccc}",
+                r"			\toprule",
+                r"			\rowcolor{primary}",
+                r"			\color{white}\textbf{Version} & \color{white}\textbf{Mean} & \color{white}\textbf{Z-Score} & \color{white}\textbf{Note} \\ \midrule",
+            ]
+            for i, vo in enumerate(report.version_outliers):
+                bg = r"\rowcolor{rowA} " if i % 2 == 0 else r"\rowcolor{rowB} "
+                sign = "+" if vo.z_score >= 0 else ""
+                note = vo.label.replace("←", r"$\leftarrow$")
+                lines.append(f"			{bg}{vo.version} & {vo.mean} & {sign}{vo.z_score} & {note} \\\\")
+            lines += [
+                r"			\bottomrule",
+                r"		\end{tabular}",
+                r"	\end{table}",
+                "",
+                r"	% ── Section 6 ────────────────────────────────────────────────────────────────",
+                r"	\section{Quick Summary}",
+                r"	\begin{summarybox}",
+                r"		\begin{itemize}[leftmargin=*, itemsep=4pt]",
+                f"			\\item \\textbf{{Total Students:}} {report.total_students}",
+                f"			\\item \\textbf{{Overall Mean:}} {report.overall_mean} / {ms} \\quad ({pct_mean}\\%)",
+                f"			\\item \\textbf{{Overall Median:}} {report.overall_median}",
+                f"			\\item \\textbf{{Overall Mode:}} {modes}",
+                f"			\\item \\textbf{{Overall Std Dev:}} {report.overall_stddev}",
+            ]
             if report.version_ranking:
                 easiest = report.version_ranking[0]
                 hardest = report.version_ranking[-1]
                 spread = round(easiest.mean - hardest.mean, 3)
-            else:
-                easiest = hardest = None
-                spread = 0
-
+                lines.append(f"			\\item \\textbf{{Easiest Version:}} {easiest.version} \\quad (mean = {easiest.mean})")
+                lines.append(f"			\\item \\textbf{{Hardest Version:}} {hardest.version} \\quad (mean = {hardest.mean})")
+                lines.append(f"			\\item \\textbf{{Spread in Means:}} {spread} points across versions")
             lines += [
-                r"\section*{6. Quick Summary}",
-                r"\begin{itemize}",
-                f"\\item \\textbf{{Total Students:}} {report.total_students}",
-                f"\\item \\textbf{{Overall Mean:}} {report.overall_mean} / {ms} ({pct_mean}\\%)",
-                f"\\item \\textbf{{Overall Median:}} {report.overall_median}",
-                f"\\item \\textbf{{Overall Mode:}} {modes}",
-                f"\\item \\textbf{{Overall Std Dev:}} {report.overall_stddev}",
-            ]
-            if easiest:
-                lines.append(f"\\item \\textbf{{Easiest Version:}} {easiest.version} (mean = {easiest.mean})")
-            if hardest:
-                lines.append(f"\\item \\textbf{{Hardest Version:}} {hardest.version} (mean = {hardest.mean})")
-            lines.append(f"\\item \\textbf{{Spread in Means:}} {spread} points")
-            lines.append(f"\\item \\textbf{{ANOVA Result:}} "
-                         + (r"Not equivalent ($p < 0.05$)" if report.anova_p < 0.05 else r"Equivalent ($p \geq 0.05$)"))
-            lines += [
-                r"\end{itemize}",
+                f"			\\item \\textbf{{ANOVA p-value:}} {report.anova_p} \\quad " + (r"\textcolor{danger}{$\rightarrow$ Not equivalent}" if report.anova_p < 0.05 else r"\textcolor{success}{$\rightarrow$ Equivalent}"),
+                r"		\end{itemize}",
+                r"	\end{summarybox}",
                 "",
-                r"\vspace{5mm}",
-                r"\noindent\rule{\textwidth}{1.5pt}",
-                r"\begin{center}{\small End of Statistical Analytics Report}\end{center}",
+                r"	\vfill",
+                r"	\begin{center}",
+                r"		\textcolor{medgray}{\small\rule{0.4\textwidth}{0.4pt} \\[4pt]",
+                r"			End of Report — Generated by Euler OMR Grading System}",
+                r"	\end{center}",
+                "",
                 r"\end{document}",
             ]
 
@@ -360,4 +427,4 @@ class ReportBuilder:
             _log("pdflatex not available for report compilation", "WARNING")
             return ""
         finally:
-            pass  # keep tmp for debugging
+            pass
