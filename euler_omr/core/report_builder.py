@@ -221,7 +221,7 @@ class ReportBuilder:
                 r"		\centering",
                 r"       \textbf{\large Executive Dashboard \& Test Quality Overview}\\[8pt]",
                 r"		\renewcommand{\arraystretch}{1.3}",
-                r"		\begin{tabular}{>{\raggedleft\arraybackslash}p{4cm} p{3.8cm} | >{\raggedleft\arraybackslash}p{4cm} p{3.8cm}}",
+                r"		\begin{tabular}{r@{\hspace{0.3cm}}l | r@{\hspace{0.3cm}}l}",
                 f"			\\textbf{{Total Students:}} & {report.total_students} & \\textbf{{Flagged Items:}} & {flag_str} \\\\",
                 f"			\\textbf{{Overall Mean:}}   & {report.overall_mean} / {ms} ({pct_mean}\\%) & \\textbf{{Hardest Item:}} & {hardest_str} \\\\",
                 f"			\\textbf{{Reliability ($\\alpha$):}} & {alpha} ({alpha_col}) & \\textbf{{Easiest Item:}} & {easiest_str} \\\\",
