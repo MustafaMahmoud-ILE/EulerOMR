@@ -197,12 +197,12 @@ class ReportBuilder:
                 best_d_str = "--"
                 flagged_count = pattern_flag_count
 
-            rec_actions = [f"       --- Test reliability is classified as \\textbf{{{alpha_class}}}."]
+            rec_actions = [f"       \\item Test reliability is classified as \\textbf{{{alpha_class}}}."]
             if alpha < 0.70:
-                rec_actions.append(r"       --- \textcolor{danger}{\textbf{Critical Warning:}} Test length or item quality is insufficient for reliable institutional grading.")
+                rec_actions.append(r"       \item \textcolor{danger}{\textbf{Critical Warning:}} Test length or item quality is insufficient for reliable institutional grading.")
             if flagged_count > 0:
-                rec_actions.append(f"       --- \\textcolor{{warning}}{{\\textbf{{Action Required:}}}} Review {flagged_count} flagged anomaly(s) (including poor psychometrics and critical pattern distractors) to improve assessment quality.")
-            rec_actions.append(f"       --- {ver_eq}")
+                rec_actions.append(f"       \\item \\textcolor{{warning}}{{\\textbf{{Action Required:}}}} Review {flagged_count} flagged anomaly(s) (including poor psychometrics and critical pattern distractors) to improve assessment quality.")
+            rec_actions.append(f"       \\item {ver_eq}")
 
             lines += [
                 "",
@@ -212,28 +212,31 @@ class ReportBuilder:
                 r"	\vspace*{0.5cm}",
                 r"	{\Huge\bfseries\color{primary} Euler OMR\par}",
                 r"	\vspace{0.4cm}",
-                r"	{\LARGE\color{accent} Assessment Analytics & Evaluation Dashboard\par}",
+                r"	{\LARGE\color{accent} Assessment Analytics \& Evaluation Dashboard\par}",
                 r"	\vspace{0.6cm}",
                 r"	\textcolor{medgray}{\rule{0.6\textwidth}{0.6pt}}",
                 r"	\vspace{0.6cm}",
                 r"	",
-                r"	\begin{tcolorbox}[width=0.9\textwidth, colback=lightgray, colframe=primary, arc=4pt, boxrule=0.8pt]",
+                r"	\begin{tcolorbox}[width=0.95\textwidth, colback=lightgray, colframe=primary, arc=4pt, boxrule=0.8pt]",
                 r"		\centering",
-                r"       \textbf{\large Executive Dashboard & Test Quality Overview}\\[6pt]",
-                r"		\renewcommand{\arraystretch}{1.2}",
-                r"		\begin{tabular}{rl | rl}",
+                r"       \textbf{\large Executive Dashboard \& Test Quality Overview}\\[8pt]",
+                r"		\renewcommand{\arraystretch}{1.3}",
+                r"		\begin{tabular}{>{\raggedleft\arraybackslash}p{4cm} p{3.8cm} | >{\raggedleft\arraybackslash}p{4cm} p{3.8cm}}",
                 f"			\\textbf{{Total Students:}} & {report.total_students} & \\textbf{{Flagged Items:}} & {flag_str} \\\\",
                 f"			\\textbf{{Overall Mean:}}   & {report.overall_mean} / {ms} ({pct_mean}\\%) & \\textbf{{Hardest Item:}} & {hardest_str} \\\\",
                 f"			\\textbf{{Reliability ($\\alpha$):}} & {alpha} ({alpha_col}) & \\textbf{{Easiest Item:}} & {easiest_str} \\\\",
                 f"			\\textbf{{Split-Half:}} & {split_half} ({split_half_col}) & \\textbf{{Best Discriminator:}} & {best_d_str} \\\\",
-                f"			\\multicolumn{{4}}{{c}}{{\\textbf{{Version Fairness:}} {ver_col}}} \\\\",
+                f"			\\multicolumn{{4}}{{c}}{{\\vspace{{4pt}}\\textbf{{Version Fairness:}} {ver_col}}} \\\\",
                 r"		\end{tabular}",
                 r"	\end{tcolorbox}",
                 r"	",
-                r"	\vspace{0.4cm}",
-                r"	\begin{tcolorbox}[width=0.9\textwidth, colback=white, colframe=medgray, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
-                r"		\textbf{Summary and Recommended Academic Actions:}\\",
-                "\\\\\n".join(rec_actions),
+                r"	\vspace{0.5cm}",
+                r"	\begin{tcolorbox}[width=0.95\textwidth, colback=white, colframe=medgray, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
+                r"		\textbf{Summary and Recommended Academic Actions:}",
+                r"		\vspace{-0.2cm}",
+                r"		\begin{itemize}[leftmargin=1.5em, label={--}]",
+                "\n".join(rec_actions),
+                r"		\end{itemize}",
                 r"	\end{tcolorbox}",
                 r"	",
                 r"	\vfill",
