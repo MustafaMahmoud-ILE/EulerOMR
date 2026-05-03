@@ -357,7 +357,18 @@ class ReportBuilder:
                 r"		\textbf{p-value (Difficulty):} Proportion of students answering correctly. Values $>0.75$ are Easy, $0.30 - 0.75$ are Moderate, $<0.30$ are Hard.\\",
                 r"		\textbf{Discrimination Index (D):} Difference in correct rate between the top 27\% and bottom 27\% of students. Values $>0.30$ indicate Excellent discrimination, $0.10 - 0.30$ Fair, and $<0.10$ Poor.",
                 r"	\end{tcolorbox}",
-                "",
+            ]
+            has_low_d = any(psy.discrimination_index < 0.10 for psy in report.item_psychometrics)
+            if has_low_d:
+                lines += [
+                    r"	\begin{tcolorbox}[colback=danger!5, colframe=danger, arc=3pt, boxrule=0.8pt]",
+                    r"		\textbf{Note --- Low Discrimination Index Detected}\\",
+                    r"		One or more items in this assessment show a Discrimination Index (D) below the acceptable threshold (D $<$ 0.10), which is rated as Poor. This indicates that these questions do not effectively differentiate between high-performing and low-performing students, and may not be contributing meaningfully to the overall assessment quality.\\",
+                    r"		\textbf{Recommendation:} The flagged items should be reviewed by the exam committee to assess their content validity and determine whether revision or removal is appropriate in future versions of the test.",
+                    r"	\end{tcolorbox}",
+                    "",
+                ]
+            lines += [
                 r"	\subsection{Cross-Question Performance Comparison}",
                 r"	\begin{table}[H]",
                 r"		\centering",
