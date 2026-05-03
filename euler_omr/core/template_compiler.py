@@ -278,32 +278,43 @@ class TemplateCompiler:
             with open(tex_path, "w", encoding="utf-8") as f:
                 f.write(source)
 
-            _log("Starting pdflatex compilation...", "INFO")
+            _log("Starting pdflatex compilation (pass 1 of 2)...", "INFO")
 
-            # Run pdflatex
-            process = subprocess.Popen(
-                [pdflatex_path, "-interaction=nonstopmode", "-halt-on-error", "template.tex"],
-                cwd=tmp_dir,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-
-            last_error_line = ""
-            for line in process.stdout:
-                line = line.rstrip()
-                if line:
-                    if line.startswith("!") or "Error" in line:
+            def _run_pdflatex(log_level_override: str | None = None) -> int:
+                """Run one pdflatex pass, return exit code."""
+                process = subprocess.Popen(
+                    [pdflatex_path, "-interaction=nonstopmode", "-halt-on-error", "template.tex"],
+                    cwd=tmp_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                for line in process.stdout:
+                    line = line.rstrip()
+                    if not line:
+                        continue
+                    if log_level_override:
+                        _log(line, log_level_override)
+                    elif line.startswith("!") or "Error" in line:
+                        nonlocal last_error_line
                         last_error_line = line
                         _log(line, "ERROR")
                     else:
                         _log(line, "DEBUG")
+                process.wait()
+                return process.returncode
 
-            process.wait()
+            last_error_line = ""
+            # Pass 1 — silenced to DEBUG; builds .aux with page anchors for TikZ overlays
+            _run_pdflatex(log_level_override="DEBUG")
 
-            if process.returncode != 0:
+            _log("Starting pdflatex compilation (pass 2 of 2)...", "INFO")
+            # Pass 2 — resolves remember picture / overlay coordinates (corner + timing marks)
+            returncode = _run_pdflatex()
+
+            if returncode != 0:
                 raise TemplateCompileError(
-                    f"pdflatex failed (exit code {process.returncode}): {last_error_line}"
+                    f"pdflatex failed (exit code {returncode}): {last_error_line}"
                 )
 
             pdf_path = os.path.join(tmp_dir, "template.pdf")
