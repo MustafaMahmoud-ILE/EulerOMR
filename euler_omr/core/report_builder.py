@@ -162,37 +162,59 @@ class ReportBuilder:
                 ver_eq = "Statistically significant difference exists between versions."
                 ver_col = r"\textcolor{danger}{\textbf{Significant diff}}"
 
+            if report.item_psychometrics:
+                easiest_item = max(report.item_psychometrics, key=lambda x: x.p_value)
+                hardest_item = min(report.item_psychometrics, key=lambda x: x.p_value)
+                best_disc = max(report.item_psychometrics, key=lambda x: x.discrimination_index)
+                flagged_count = sum(1 for x in report.item_psychometrics if x.quality_class in ["Needs Review", "Poor"])
+                flag_str = r"\textcolor{danger}{\textbf{" + str(flagged_count) + "}}" if flagged_count > 0 else r"\textcolor{success}{\textbf{0}}"
+                hardest_str = f"Q{hardest_item.question_idx+1} ($p={hardest_item.p_value}$)"
+                easiest_str = f"Q{easiest_item.question_idx+1} ($p={easiest_item.p_value}$)"
+                best_d_str = f"Q{best_disc.question_idx+1} ($D={best_disc.discrimination_index}$)"
+            else:
+                flag_str = "--"
+                hardest_str = "--"
+                easiest_str = "--"
+                best_d_str = "--"
+                flagged_count = 0
+
+            rec_actions = [f"       --- Test reliability is classified as \\textbf{{{alpha_class}}}."]
+            if alpha < 0.70:
+                rec_actions.append(r"       --- \textcolor{danger}{\textbf{Critical Warning:}} Test length or item quality is insufficient for reliable institutional grading.")
+            if flagged_count > 0:
+                rec_actions.append(f"       --- \\textcolor{{warning}}{{\\textbf{{Action Required:}}}} Review {flagged_count} flagged item(s) to improve assessment quality.")
+            rec_actions.append(f"       --- {ver_eq}")
+
             lines += [
                 "",
                 r"% Title Page & Executive Dashboard",
                 r"\begin{titlepage}",
                 r"	\centering",
-                r"	\vspace*{1.5cm}",
+                r"	\vspace*{0.5cm}",
                 r"	{\Huge\bfseries\color{primary} Euler OMR\par}",
                 r"	\vspace{0.4cm}",
                 r"	{\LARGE\color{accent} Assessment Analytics & Evaluation Dashboard\par}",
-                r"	\vspace{0.8cm}",
+                r"	\vspace{0.6cm}",
                 r"	\textcolor{medgray}{\rule{0.6\textwidth}{0.6pt}}",
                 r"	\vspace{0.6cm}",
                 r"	",
-                r"	\begin{tcolorbox}[width=0.85\textwidth, colback=lightgray, colframe=primary, arc=4pt, boxrule=0.8pt]",
+                r"	\begin{tcolorbox}[width=0.9\textwidth, colback=lightgray, colframe=primary, arc=4pt, boxrule=0.8pt]",
                 r"		\centering",
                 r"       \textbf{\large Executive Dashboard & Test Quality Overview}\\[6pt]",
-                r"		\begin{tabular}{rl}",
-                f"			\\textbf{{Total Students:}} & {report.total_students} \\\\",
-                f"			\\textbf{{Overall Mean:}}   & {report.overall_mean} / {ms} \\quad ({pct_mean}\\%) \\\\",
-                f"			\\textbf{{Reliability (Alpha):}} & {alpha} \\quad ({alpha_col}) \\\\",
-                f"			\\textbf{{Split-Half:}} & {split_half} \\quad ({split_half_col}) \\\\",
-                f"			\\textbf{{Version Fairness:}} & {ver_col} \\\\",
+                r"		\renewcommand{\arraystretch}{1.2}",
+                r"		\begin{tabular}{rl | rl}",
+                f"			\\textbf{{Total Students:}} & {report.total_students} & \\textbf{{Flagged Items:}} & {flag_str} \\\\",
+                f"			\\textbf{{Overall Mean:}}   & {report.overall_mean} / {ms} ({pct_mean}\\%) & \\textbf{{Hardest Item:}} & {hardest_str} \\\\",
+                f"			\\textbf{{Reliability ($\\alpha$):}} & {alpha} ({alpha_col}) & \\textbf{{Easiest Item:}} & {easiest_str} \\\\",
+                f"			\\textbf{{Split-Half:}} & {split_half} ({split_half_col}) & \\textbf{{Best Discriminator:}} & {best_d_str} \\\\",
+                f"			\\multicolumn{{4}}{{c}}{{\\textbf{{Version Fairness:}} {ver_col}}} \\\\",
                 r"		\end{tabular}",
                 r"	\end{tcolorbox}",
                 r"	",
                 r"	\vspace{0.4cm}",
-                r"	\begin{tcolorbox}[width=0.85\textwidth, colback=white, colframe=medgray, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
-                r"		\textbf{Summary and Next Recommended Actions:}\\",
-                f"       --- Test reliability is classified as \\textbf{{{alpha_class}}}.\\\\",
-                f"       --- {ver_eq}\\\\",
-                f"       --- Score distribution standard deviation is \\textbf{{{report.overall_stddev}}}.",
+                r"	\begin{tcolorbox}[width=0.9\textwidth, colback=white, colframe=medgray, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
+                r"		\textbf{Summary and Recommended Academic Actions:}\\",
+                "\\\\\n".join(rec_actions),
                 r"	\end{tcolorbox}",
                 r"	",
                 r"	\vfill",
@@ -428,19 +450,19 @@ class ReportBuilder:
                         pct_range = max(all_pcts) - min(all_pcts) if all_pcts else 0
                         
                         if max_inc_pct > correct_pct:
-                            status = "Not OK"
+                            status = r"\textcolor{danger}{\textbf{Critical}}"
                             insight = f"Option {max_inc_k} pulled more students than correct key."
                         elif correct_pct <= 35.0 and pct_range <= 20.0:
-                            status = "Not OK"
+                            status = r"\textcolor{danger}{\textbf{Warning}}"
                             insight = "Scattered options."
                         elif correct_pct - max_inc_pct <= 15.0:
-                            status = "Not OK"
+                            status = r"\textcolor{warning}{\textbf{Moderate}}"
                             insight = f"Option {max_inc_k} closely competing."
                         else:
-                            status = "OK"
+                            status = r"\textcolor{success}{\textbf{Optimal}}"
                             insight = "--"
                     else:
-                        status = "OK"
+                        status = r"\textcolor{success}{\textbf{Optimal}}"
                         insight = "--"
                     lines.append(f"		{bg}{ver} & {vals} & {status} & {insight} \\\\")
                 lines += [

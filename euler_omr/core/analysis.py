@@ -308,47 +308,39 @@ class AnalysisEngine:
 
         # Item psychometrics (overall item difficulty, discrimination index, failure rate)
         high_low_n = max(1, int(len(grades) * 0.27))
-        sorted_grades = sorted(grades, key=lambda g: g.score, reverse=True)
-        high_group = sorted_grades[:high_low_n]
-        low_group = sorted_grades[-high_low_n:]
+        grades_with_idx = list(enumerate(grades))
+        sorted_grades_idx = sorted(grades_with_idx, key=lambda x: x[1].score, reverse=True)
+        high_group_idx = [x[0] for x in sorted_grades_idx[:high_low_n]]
+        low_group_idx = [x[0] for x in sorted_grades_idx[-high_low_n:]]
 
-        # Student responses in binary (1 correct, 0 incorrect) for item-total and reliability
+        # Student responses in binary (1 correct, 0 incorrect)
         student_item_correct = []
         for g in grades:
             row = []
+            keys = answer_key.get_version_keys(g.version)
             for q_idx in range(active_questions):
-                q_correct_keys = set()
-                for ver in by_version.keys():
-                    keys = answer_key.get_version_keys(ver)
-                    q_correct_keys.update(keys.get(q_idx, set()))
+                q_correct_keys = keys.get(q_idx, set())
                 ans = g.answers[q_idx] if q_idx < len(g.answers) else ""
                 row.append(1 if ans in q_correct_keys else 0)
             student_item_correct.append(row)
 
         for q_idx in range(active_questions):
-            q_correct_keys = set()
+            q_display_keys = set()
             for ver in by_version.keys():
                 keys = answer_key.get_version_keys(ver)
-                q_correct_keys.update(keys.get(q_idx, set()))
+                q_display_keys.update(keys.get(q_idx, set()))
 
-            correct_all = 0
-            for g in grades:
-                ans = g.answers[q_idx] if q_idx < len(g.answers) else ""
-                if ans in q_correct_keys:
-                    correct_all += 1
-            p_val = correct_all / len(grades) if grades else 0.0
+            item_scores = [student_item_correct[s_idx][q_idx] for s_idx in range(len(grades))]
+            p_val = sum(item_scores) / len(grades) if grades else 0.0
 
-            corr_high = sum(1 for g in high_group if (g.answers[q_idx] if q_idx < len(g.answers) else "") in q_correct_keys)
-            corr_low = sum(1 for g in low_group if (g.answers[q_idx] if q_idx < len(g.answers) else "") in q_correct_keys)
+            corr_high = sum(item_scores[s_idx] for s_idx in high_group_idx)
+            corr_low = sum(item_scores[s_idx] for s_idx in low_group_idx)
             p_high = corr_high / high_low_n if high_low_n > 0 else 0.0
             p_low = corr_low / high_low_n if high_low_n > 0 else 0.0
             d_index = p_high - p_low
 
             # ── 1. Point-Biserial Correlation ──
-            item_scores = [student_item_correct[s_idx][q_idx] for s_idx in range(len(grades))]
             total_scores = [g.score for g in grades]
-
-            # Mean of correct vs mean of incorrect
             c_scores = [total_scores[s_idx] for s_idx in range(len(grades)) if item_scores[s_idx] == 1]
             inc_scores = [total_scores[s_idx] for s_idx in range(len(grades)) if item_scores[s_idx] == 0]
 
@@ -361,7 +353,6 @@ class AnalysisEngine:
             p_biserial = ((m1 - m0) / s_n) * math.sqrt(max(0, p_val * (1.0 - p_val)))
 
             # ── 2. Corrected Item-Total Correlation ──
-            # Correlation between item score and total score minus that item score
             adj_scores = [total_scores[s_idx] - item_scores[s_idx] for s_idx in range(len(grades))]
             if len(grades) > 1 and statistics.stdev(item_scores) > 0 and statistics.stdev(adj_scores) > 0:
                 mean_item = statistics.mean(item_scores)
@@ -372,13 +363,14 @@ class AnalysisEngine:
                 corr_corrected = p_biserial
 
             # ── 3. Distractor Efficiency ──
-            # A distractor functions if selected by at least 5% of incorrect students
             incorrect_choices = []
-            for g in grades:
-                ans = g.answers[q_idx] if q_idx < len(g.answers) else ""
-                if ans and ans not in q_correct_keys:
-                    incorrect_choices.append(ans)
-            all_opts_q = set(report.active_options) - q_correct_keys - {"", "BLANK"}
+            for g_idx, g in enumerate(grades):
+                if item_scores[g_idx] == 0:
+                    ans = g.answers[q_idx] if q_idx < len(g.answers) else ""
+                    if ans and ans != "BLANK":
+                        incorrect_choices.append(ans)
+            
+            all_opts_q = set(report.active_options) - q_display_keys - {"", "BLANK"}
             func_distractors = 0
             for opt in all_opts_q:
                 cnt = incorrect_choices.count(opt)
@@ -398,7 +390,7 @@ class AnalysisEngine:
 
             report.item_psychometrics.append(ItemPsychometrics(
                 question_idx=q_idx,
-                correct_keys=sorted(list(q_correct_keys)),
+                correct_keys=sorted(list(q_display_keys)),
                 p_value=round(p_val, 3),
                 discrimination_index=round(d_index, 3),
                 failure_rate=round(1.0 - p_val, 3),
