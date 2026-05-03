@@ -54,17 +54,17 @@ def main():
 
     print(f"Found {len(data_rows)} student rows, {len(q_cols)} question columns.")
 
-    # Render template page to a high-res numpy image (200 DPI)
+    # Render template page to a high-res numpy image (150 DPI)
     doc = fitz.open(template_pdf)
-    pix = doc[0].get_pixmap(dpi=200)
+    pix = doc[0].get_pixmap(dpi=150)
     w, h = pix.width, pix.height
 
     # Convert pixmap to numpy BGR image
     template_img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(h, w, 3)
     template_img = cv2.cvtColor(template_img, cv2.COLOR_RGB2BGR)
 
-    # Coordinates and sizes at 200 DPI
-    cm_to_px = 200 / 2.54
+    # Coordinates and sizes at 150 DPI
+    cm_to_px = 150 / 2.54
     bubble_r_px = int(0.22 * cm_to_px)
     bubble_step_px = 0.6 * cm_to_px
     row_step_px = 0.5 * cm_to_px
@@ -198,10 +198,10 @@ def main():
         M = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
         img = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT, borderValue=(255, 255, 255))
 
-        # Convert back to PIL image or direct image bytes
-        # Let's save direct image bytes to a PNG string using cv2
-        _, img_encoded = cv2.imencode(".png", img)
+        # Convert to compressed JPEG to keep the file size extremely small
+        _, img_encoded = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
         pil_pages.append(img_encoded.tobytes())
+
 
     # Save all pages as a multipage PDF using PyMuPDF
     if pil_pages:
