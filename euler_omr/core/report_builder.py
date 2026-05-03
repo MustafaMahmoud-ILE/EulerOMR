@@ -19,45 +19,51 @@ class ReportBuilder:
         tmp = tempfile.mkdtemp(prefix="euler_report_")
         try:
             # ── Chart 1: Overall histogram ──
-            fig, ax = plt.subplots(figsize=(8, 4))
+            fig, ax = plt.subplots(figsize=(8, 3.8))
             bins = range(0, report.max_score + 2)
             ax.hist(report.overall_scores, bins=bins, color="#2eb891",
                     edgecolor="#041010", alpha=0.85, rwidth=0.85)
-            ax.set_xlabel("Score", fontsize=11)
-            ax.set_ylabel("Frequency", fontsize=11)
-            ax.set_title("Overall Grade Distribution", fontsize=13, fontweight="bold")
+            ax.set_xlabel("Score", fontsize=11, fontweight="bold")
+            ax.set_ylabel("Frequency", fontsize=11, fontweight="bold")
+            ax.set_title("Overall Grade Distribution", fontsize=13, fontweight="bold", color="#05604b")
             ax.set_xticks(range(0, report.max_score + 1))
+            ax.grid(axis='y', linestyle='--', alpha=0.5)
             hist_path = os.path.join(tmp, "histogram.png")
             fig.savefig(hist_path, dpi=150, bbox_inches="tight")
             plt.close(fig)
 
             # ── Chart 2: Per-version boxplot ──
             if report.version_stats:
-                fig, ax = plt.subplots(figsize=(8, 4))
+                fig, ax = plt.subplots(figsize=(8, 3.8))
                 data = [vs.scores for vs in report.version_stats]
                 labels = [vs.version for vs in report.version_stats]
-                bp = ax.boxplot(data, labels=labels, patch_artist=True, widths=0.6)
-                colors = plt.cm.Set3(np.linspace(0, 1, len(data)))
-                for patch, c in zip(bp["boxes"], colors):
-                    patch.set_facecolor(c)
-                ax.set_xlabel("Version", fontsize=11)
-                ax.set_ylabel("Score", fontsize=11)
-                ax.set_title("Per-Version Score Distribution", fontsize=13, fontweight="bold")
+                bp = ax.boxplot(data, labels=labels, patch_artist=True, widths=0.5)
+                for patch in bp["boxes"]:
+                    patch.set_facecolor("#e8f4f0")
+                    patch.set_edgecolor("#05604b")
+                    patch.set_linewidth(1.5)
+                for element in ['whiskers', 'caps', 'medians']:
+                    plt.setp(bp[element], color='#05604b', linewidth=1.5)
+                ax.set_xlabel("Version", fontsize=11, fontweight="bold")
+                ax.set_ylabel("Score", fontsize=11, fontweight="bold")
+                ax.set_title("Per-Version Score Distribution", fontsize=13, fontweight="bold", color="#05604b")
+                ax.grid(axis='y', linestyle='--', alpha=0.5)
                 box_path = os.path.join(tmp, "boxplot.png")
                 fig.savefig(box_path, dpi=150, bbox_inches="tight")
                 plt.close(fig)
 
             # ── Chart 3: Version mean comparison bar ──
             if report.version_stats:
-                fig, ax = plt.subplots(figsize=(8, 4))
+                fig, ax = plt.subplots(figsize=(8, 3.8))
                 vers = [vs.version for vs in report.version_stats]
                 means = [vs.mean for vs in report.version_stats]
-                bars = ax.bar(vers, means, color="#05604b", edgecolor="#041010")
-                ax.set_xlabel("Version", fontsize=11)
-                ax.set_ylabel("Mean Score", fontsize=11)
-                ax.set_title("Version Mean Comparison", fontsize=13, fontweight="bold")
+                bars = ax.bar(vers, means, color="#05604b", edgecolor="#041010", width=0.5)
+                ax.set_xlabel("Version", fontsize=11, fontweight="bold")
+                ax.set_ylabel("Mean Score", fontsize=11, fontweight="bold")
+                ax.set_title("Version Mean Comparison", fontsize=13, fontweight="bold", color="#05604b")
                 ax.axhline(y=report.overall_mean, color="#e63946", linestyle="--",
-                           label=f"Overall Mean ({report.overall_mean})")
+                           linewidth=2, label=f"Overall Mean ({report.overall_mean})")
+                ax.grid(axis='y', linestyle='--', alpha=0.5)
                 ax.legend()
                 bar_path = os.path.join(tmp, "version_bar.png")
                 fig.savefig(bar_path, dpi=150, bbox_inches="tight")
@@ -66,7 +72,6 @@ class ReportBuilder:
             # ── Chart 4: Per-question choice distribution (all students) ──
             if report.question_choices_overall:
                 n_q = len(report.question_choices_overall)
-                cols_per_page = 1
                 rows_per_page = min(n_q, 6)
                 q_chart_paths = []
                 for page_start in range(0, n_q, rows_per_page):
@@ -82,12 +87,13 @@ class ReportBuilder:
                             options.append("BLANK")
                         counts = [qco.option_frequencies.get(o, 0) for o in options]
                         pcts = [c / qco.total_responses * 100 if qco.total_responses else 0 for c in counts]
-                        bars = axes[ax_idx].barh(options, pcts, color="#2eb891", edgecolor="#041010", height=0.6)
+                        bars = axes[ax_idx].barh(options, pcts, color="#2eb891", edgecolor="#041010", height=0.55)
                         axes[ax_idx].set_xlim(0, 100)
-                        axes[ax_idx].set_title(f"Q{q_idx + 1}", fontsize=10, fontweight="bold", loc="left")
+                        axes[ax_idx].set_title(f"Question {q_idx + 1} -- Choice Distribution", fontsize=11, fontweight="bold", loc="left", color="#05604b")
+                        axes[ax_idx].grid(axis='x', linestyle='--', alpha=0.5)
                         for bar, p, c in zip(bars, pcts, counts):
                             axes[ax_idx].text(bar.get_width() + 1, bar.get_y() + bar.get_height()/2,
-                                              f"{c} ({p:.1f}%)", va='center', fontsize=8)
+                                              f"{c} ({p:.1f}%)", va='center', fontsize=9, fontweight="bold")
                     plt.tight_layout()
                     chart_name = f"q_choices_{page_start}.png"
                     chart_path = os.path.join(tmp, chart_name)
@@ -98,14 +104,14 @@ class ReportBuilder:
             _log("Charts generated", "INFO")
 
             # ═══════════════════════════════════════════════════════════
-            #  Build LaTeX report
+            #  Build Premium LaTeX report
             # ═══════════════════════════════════════════════════════════
             ms = report.max_score
             pct_mean = round(report.overall_mean / ms * 100, 1) if ms > 0 else 0
 
             lines = [
                 r"\documentclass[a4paper,10pt]{article}",
-                r"\usepackage[margin=1.8cm]{geometry}",
+                r"\usepackage[margin=1.5cm]{geometry}",
                 r"\usepackage{graphicx}",
                 r"\usepackage{booktabs}",
                 r"\usepackage{xcolor}",
@@ -113,20 +119,24 @@ class ReportBuilder:
                 r"\usepackage{multicol}",
                 r"\usepackage{fancyhdr}",
                 r"\usepackage{amssymb}",
-                r"\definecolor{euler}{HTML}{2eb891}",
-                r"\definecolor{darkeuler}{HTML}{05604b}",
+                r"\usepackage{sectsty}",
+                r"\definecolor{euler}{HTML}{2EB891}",
+                r"\definecolor{darkeuler}{HTML}{05604B}",
+                r"\definecolor{lighteuler}{HTML}{E8F4F0}",
+                r"\sectionfont{\color{darkeuler}\fontfamily{phv}\selectfont}",
                 r"\pagestyle{fancy}",
                 r"\fancyhf{}",
-                r"\fancyhead[C]{\color{darkeuler}\textbf{Euler OMR -- Statistical Analysis Report}}",
-                r"\fancyfoot[C]{\thepage}",
+                r"\fancyhead[R]{\color{darkeuler}\textbf{Euler OMR Statistical Report}}",
+                r"\fancyfoot[C]{\color{darkeuler}\textbf{\thepage}}",
                 r"\begin{document}",
                 "",
                 r"\begin{center}",
-                r"{\LARGE\bfseries\color{euler} Euler OMR -- Statistical Analysis Report}\\[3mm]",
-                r"{\small Generated by Euler OMR Grading System}",
+                r"{\Huge\bfseries\color{darkeuler} Euler OMR Analysis Report}\\[2mm]",
+                r"{\large\color{euler}\textbf{Advanced Academic Analytics & Grading Insights}}\\[1mm]",
+                r"{\small Generated by Euler OMR Pipeline}",
                 r"\end{center}",
+                r"\noindent\rule{\textwidth}{1.5pt}",
                 r"\vspace{3mm}",
-                r"\noindent\rule{\textwidth}{1pt}",
                 "",
             ]
 
@@ -134,17 +144,17 @@ class ReportBuilder:
             modes = report.overall_mode
             lines += [
                 r"\section*{1. Overall Statistics (All Students, All Versions)}",
+                r"\begin{multicols}{2}",
                 r"\begin{tabular}{ll}",
-                f"Total Students & {report.total_students} \\\\",
-                f"Mean & {report.overall_mean} / {ms} ({pct_mean}\\%) \\\\",
-                f"Median & {report.overall_median} \\\\",
-                f"Mode & {modes} \\\\",
-                f"Std Dev & {report.overall_stddev} \\\\",
-                f"Range & {report.overall_min} -- {report.overall_max} \\\\",
+                f"Total Students & \\textbf{{{report.total_students}}} \\\\",
+                f"Mean & \\textbf{{{report.overall_mean} / {ms} ({pct_mean}\\%)}} \\\\",
+                f"Median & \\textbf{{{report.overall_median}}} \\\\",
+                f"Mode & \\textbf{{{modes}}} \\\\",
+                f"Std Dev & \\textbf{{{report.overall_stddev}}} \\\\",
+                f"Range & \\textbf{{{report.overall_min} -- {report.overall_max}}} \\\\",
                 r"\end{tabular}",
-                r"\vspace{3mm}",
-                "",
-                r"\noindent\textbf{Score Distribution:}\\[2mm]",
+                r"\columnbreak",
+                r"\noindent\textbf{Score Distribution}\\[1mm]",
                 r"\begin{tabular}{crr}",
                 r"\toprule",
                 r"Score & Students & Percentage \\ \midrule",
@@ -154,8 +164,10 @@ class ReportBuilder:
             lines += [
                 r"\bottomrule",
                 r"\end{tabular}",
+                r"\end{multicols}",
                 "",
-                r"\begin{center}\includegraphics[width=0.85\textwidth]{histogram.png}\end{center}",
+                r"\begin{center}\includegraphics[width=0.82\textwidth]{histogram.png}\end{center}",
+                r"\vspace{4mm}",
                 "",
             ]
 
@@ -164,9 +176,9 @@ class ReportBuilder:
                 lines += [
                     r"\section*{2. Per-Version Statistics}",
                     r"\begin{center}",
-                    r"\begin{tabular}{lrrrrrrr}",
+                    r"\begin{tabular}{lcrrrrrr}",
                     r"\toprule",
-                    r"Version & N & Mean & \% & Median & Std Dev & Min & Max \\ \midrule",
+                    r"\textbf{Version} & \textbf{N} & \textbf{Mean} & \textbf{\%} & \textbf{Median} & \textbf{Std Dev} & \textbf{Min} & \textbf{Max} \\ \midrule",
                 ]
                 for vs in report.version_stats:
                     pct = round(vs.mean / ms * 100, 1) if ms > 0 else 0
@@ -179,7 +191,8 @@ class ReportBuilder:
                     r"\end{tabular}",
                     r"\end{center}",
                     "",
-                    r"\begin{center}\includegraphics[width=0.85\textwidth]{boxplot.png}\end{center}",
+                    r"\begin{center}\includegraphics[width=0.82\textwidth]{boxplot.png}\end{center}",
+                    r"\vspace{4mm}",
                     "",
                 ]
 
@@ -191,21 +204,21 @@ class ReportBuilder:
                 ]
                 for qco in report.question_choices_overall:
                     q_idx = qco.question_idx
-                    lines.append(f"\\noindent\\textbf{{Q{q_idx + 1}}}\\\\[1mm]")
+                    lines.append(f"\\noindent\\textbf{{Question {q_idx + 1} Responses Summary:}}\\\\[1mm]")
                     options = sorted([k for k in qco.option_frequencies.keys() if k != "BLANK"])
                     if "BLANK" in qco.option_frequencies:
                         options.append("BLANK")
+                    lines.append(r"\begin{tabular}{lrr}\toprule")
+                    lines.append(r"Option & Count & Percentage \\ \midrule")
                     for opt in options:
                         cnt = qco.option_frequencies.get(opt, 0)
                         pct = round(cnt / qco.total_responses * 100, 1) if qco.total_responses > 0 else 0.0
-                        bar_len = int(pct / 5)  # scale bars
-                        bar = "█" * bar_len if bar_len > 0 else ""
-                        lines.append(f"\\quad {opt} \\quad {bar} \\quad {cnt} ({pct}\\%)\\\\")
+                        lines.append(f"{opt} & {cnt} & {pct}\\% \\\\")
+                    lines.append(r"\bottomrule\end{tabular}\vspace{3mm}\\\\")
                     lines.append("")
 
-                # Include charts
                 for chart_name in q_chart_paths:
-                    lines.append(f"\\begin{{center}}\\includegraphics[width=0.9\\textwidth]{{{chart_name}}}\\end{{center}}")
+                    lines.append(f"\\begin{{center}}\\includegraphics[width=0.85\\textwidth]{{{chart_name}}}\\end{{center}}")
                     lines.append("")
 
             # ── Section 4: Answer Choice Analysis × Version ──
@@ -217,12 +230,12 @@ class ReportBuilder:
                 opts = report.active_options if report.active_options else ["A", "B", "C", "D"]
                 for qcv in report.question_choices_by_version:
                     q_idx = qcv.question_idx
-                    lines.append(f"\\noindent\\textbf{{Q{q_idx + 1}}}\\\\[1mm]")
+                    lines.append(f"\\noindent\\textbf{{Question {q_idx + 1} cross-tabulation}}\\\\[1mm]")
                     header_opts = " & ".join(opts)
-                    col_spec = "l" + "r" * len(opts)
+                    col_spec = "c" + "r" * len(opts)
                     lines.append(f"\\begin{{tabular}}{{{col_spec}}}")
                     lines.append(r"\toprule")
-                    lines.append(f"Version & {header_opts} \\\\ \\midrule")
+                    lines.append(f"\\textbf{{Version}} & {header_opts} \\\\ \\midrule")
                     for ver in sorted(qcv.version_option_pct.keys()):
                         pct_map = qcv.version_option_pct[ver]
                         vals = " & ".join(f"{int(pct_map.get(o, 0))}\\%" for o in opts)
@@ -251,34 +264,32 @@ class ReportBuilder:
                 ]
 
                 # ANOVA results
-                anova_sig = "Yes" if report.anova_p < 0.05 else "No"
-                anova_mark = r"$\times$" if report.anova_p < 0.05 else r"$\checkmark$"
                 lines += [
-                    r"\noindent\textbf{ANOVA Test (Are versions statistically equivalent?)}\\[1mm]",
+                    r"\noindent\textbf{ANOVA Test Results (Statistical Equivalence)}\\[1mm]",
                     f"\\quad F-statistic: {report.anova_f}\\\\",
                     f"\\quad p-value: {report.anova_p}\\\\",
                 ]
                 if report.anova_p < 0.05:
-                    lines.append(r"\quad $\times$ Significant difference found (p $<$ 0.05). Versions are NOT equivalent.\\")
+                    lines.append(r"\quad \textbf{Verdict:} Significant difference found ($p < 0.05$). The versions are not fully equivalent in difficulty.\\")
                 else:
-                    lines.append(r"\quad $\checkmark$ No significant difference (p $\geq$ 0.05). Versions are equivalent.\\")
+                    lines.append(r"\quad \textbf{Verdict:} No significant difference found ($p \geq 0.05$). The versions are equivalent.\\")
 
                 lines += [
                     r"\vspace{2mm}",
-                    r"\noindent\textbf{Kruskal-Wallis Test (non-parametric)}\\[1mm]",
+                    r"\noindent\textbf{Kruskal-Wallis Test (Non-parametric)}\\[1mm]",
                     f"\\quad H-statistic: {report.kruskal_h}\\\\",
                     f"\\quad p-value: {report.kruskal_p}\\\\",
                 ]
                 if report.kruskal_p < 0.05:
-                    lines.append(r"\quad $\times$ Non-parametric test also shows significant differences.\\")
+                    lines.append(r"\quad \textbf{Verdict:} Non-parametric test also indicates significant differences.\\")
                 else:
-                    lines.append(r"\quad $\checkmark$ Non-parametric test confirms no significant differences.\\")
+                    lines.append(r"\quad \textbf{Verdict:} Non-parametric test confirms no significant differences.\\")
 
                 # Outlier versions
                 if report.version_outliers:
                     lines += [
                         r"\vspace{3mm}",
-                        r"\noindent\textbf{Outlier Versions}\\[1mm]",
+                        r"\noindent\textbf{Outlier Versions Identification}\\[1mm]",
                         f"\\quad Grand Mean across versions: {report.grand_mean_versions}\\\\",
                         f"\\quad Std of version means: {report.std_version_means}\\\\[2mm]",
                         r"\begin{tabular}{lrrl}",
@@ -310,25 +321,25 @@ class ReportBuilder:
             lines += [
                 r"\section*{6. Quick Summary}",
                 r"\begin{itemize}",
-                f"\\item Total Students: {report.total_students}",
-                f"\\item Overall Mean: {report.overall_mean} / {ms} ({pct_mean}\\%)",
-                f"\\item Overall Median: {report.overall_median}",
-                f"\\item Overall Mode: {modes}",
-                f"\\item Overall Std Dev: {report.overall_stddev}",
+                f"\\item \\textbf{{Total Students:}} {report.total_students}",
+                f"\\item \\textbf{{Overall Mean:}} {report.overall_mean} / {ms} ({pct_mean}\\%)",
+                f"\\item \\textbf{{Overall Median:}} {report.overall_median}",
+                f"\\item \\textbf{{Overall Mode:}} {modes}",
+                f"\\item \\textbf{{Overall Std Dev:}} {report.overall_stddev}",
             ]
             if easiest:
-                lines.append(f"\\item Easiest Version: {easiest.version} (mean = {easiest.mean})")
+                lines.append(f"\\item \\textbf{{Easiest Version:}} {easiest.version} (mean = {easiest.mean})")
             if hardest:
-                lines.append(f"\\item Hardest Version: {hardest.version} (mean = {hardest.mean})")
-            lines.append(f"\\item Spread in Means: {spread} points")
-            lines.append(f"\\item ANOVA p-value: {report.anova_p} $\\rightarrow$ "
-                         + (r"\textbf{NOT equivalent}" if report.anova_p < 0.05 else r"\textbf{Equivalent}"))
+                lines.append(f"\\item \\textbf{{Hardest Version:}} {hardest.version} (mean = {hardest.mean})")
+            lines.append(f"\\item \\textbf{{Spread in Means:}} {spread} points")
+            lines.append(f"\\item \\textbf{{ANOVA Result:}} "
+                         + (r"Not equivalent ($p < 0.05$)" if report.anova_p < 0.05 else r"Equivalent ($p \geq 0.05$)"))
             lines += [
                 r"\end{itemize}",
                 "",
                 r"\vspace{5mm}",
-                r"\noindent\rule{\textwidth}{1pt}",
-                r"\begin{center}{\small End of Report}\end{center}",
+                r"\noindent\rule{\textwidth}{1.5pt}",
+                r"\begin{center}{\small End of Statistical Analytics Report}\end{center}",
                 r"\end{document}",
             ]
 
@@ -339,7 +350,6 @@ class ReportBuilder:
             pdflatex = TemplateCompiler.find_pdflatex()
             if pdflatex:
                 import subprocess
-                # Run twice for cross-references
                 subprocess.run([pdflatex, "-interaction=nonstopmode", "report.tex"], cwd=tmp, capture_output=True)
                 subprocess.run([pdflatex, "-interaction=nonstopmode", "report.tex"], cwd=tmp, capture_output=True)
                 pdf_src = os.path.join(tmp, "report.pdf")
