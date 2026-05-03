@@ -74,6 +74,7 @@ QTabBar::close-button {
 }
 QTabBar::close-button:hover {
     background-color: #e63946;
+    color: #f0f6f6;
 }
 
 /* === Buttons === */
