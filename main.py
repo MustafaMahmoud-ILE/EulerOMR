@@ -30,7 +30,7 @@ def main():
         pixmap = QPixmap(img_path)
         if pixmap.width() > 500 or pixmap.height() > 500:
             pixmap = pixmap.scaled(400, 400, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        splash = QSplashScreen(pixmap, Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.FramelessWindowHint)
+        splash = QSplashScreen(pixmap, Qt.WindowType.SplashScreen)
         splash.show()
         app.processEvents()
 
@@ -49,6 +49,7 @@ def main():
     
     if splash:
         splash.finish(window)
+        splash.close()
         
     window.show()
 
