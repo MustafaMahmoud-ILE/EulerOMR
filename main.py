@@ -18,6 +18,22 @@ def main():
         QMessageBox.information(None, "Euler OMR", "Euler OMR is already running.")
         sys.exit(0)
 
+    # ── Splash Screen ──
+    from PySide6.QtWidgets import QSplashScreen
+    from PySide6.QtGui import QPixmap
+    from PySide6.QtCore import Qt
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    img_path = os.path.join(base_dir, "leonhard.png")
+    splash = None
+    if os.path.exists(img_path):
+        pixmap = QPixmap(img_path)
+        if pixmap.width() > 500 or pixmap.height() > 500:
+            pixmap = pixmap.scaled(400, 400, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        splash = QSplashScreen(pixmap, Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.FramelessWindowHint)
+        splash.show()
+        app.processEvents()
+
     # Apply stylesheet
     from euler_omr.ui.style import apply_stylesheet
     apply_stylesheet(app)
@@ -30,6 +46,10 @@ def main():
     # Create and show main window
     from euler_omr.ui.main_window import MainWindow
     window = MainWindow()
+    
+    if splash:
+        splash.finish(window)
+        
     window.show()
 
     sys.exit(app.exec())
