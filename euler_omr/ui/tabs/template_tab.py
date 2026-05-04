@@ -173,7 +173,7 @@ class TemplateTab(QWidget):
         self._mark_dirty()
 
     def _browse_logo(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select Logo", os.path.expanduser("~/Documents"), IMAGE_FILTER)
+        path, _ = QFileDialog.getOpenFileName(self, "Select Logo", os.path.expanduser("~/Pictures"), IMAGE_FILTER)
         if path:
             with open(path, "rb") as f:
                 self._logo_bytes = f.read()
