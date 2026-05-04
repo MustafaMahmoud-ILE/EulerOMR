@@ -52,25 +52,115 @@ class ReportBuilder:
                 fig.savefig(bar_path, dpi=150, bbox_inches="tight")
                 plt.close(fig)
 
-            # Generate Chart 3: Score distribution per version
-            version_chart_paths = []
-            if report.version_stats:
-                for vs in report.version_stats:
-                    if not vs.scores:
-                        continue
-                    fig, ax = plt.subplots(figsize=(6, 3))
-                    bins = range(0, report.max_score + 2)
-                    ax.hist(vs.scores, bins=bins, color="#1B4F72", edgecolor="#117A65", alpha=0.75, rwidth=0.85)
-                    ax.set_xlabel("Score", fontsize=10, fontweight="bold", color="#1B4F72")
-                    ax.set_ylabel("Frequency", fontsize=10, fontweight="bold", color="#1B4F72")
-                    ax.set_title(f"Score Distribution - Version {vs.version}", fontsize=11, fontweight="bold", color="#1B4F72")
-                    ax.set_xticks(range(0, report.max_score + 1))
+            # Generate Chart 3: Box Plot — Score Distribution per Version
+            if getattr(report, "version_stats", []):
+                fig, ax = plt.subplots(figsize=(8, 4))
+                vers = [vs.version for vs in report.version_stats if vs.scores]
+                data = [vs.scores for vs in report.version_stats if vs.scores]
+                if vers and data:
+                    ax.boxplot(data, labels=vers, patch_artist=True, boxprops=dict(facecolor="#117A65", color="#1B4F72", alpha=0.7),
+                               capprops=dict(color="#1B4F72"), whiskerprops=dict(color="#1B4F72"),
+                               flierprops=dict(markerfacecolor="#C0392B", markeredgecolor="#C0392B", marker='o'),
+                               medianprops=dict(color="red", linewidth=2))
+                    ax.axhline(y=report.overall_mean, color="red", linestyle="--", linewidth=1.5, label=f"Overall Mean ({report.overall_mean})")
+                    ax.set_xlabel("Exam Version", fontsize=10, fontweight="bold", color="#1B4F72")
+                    ax.set_ylabel("Score", fontsize=10, fontweight="bold", color="#1B4F72")
+                    ax.set_title("Score Distribution Box Plot by Version", fontsize=12, fontweight="bold", color="#1B4F72")
                     ax.grid(axis='y', linestyle='--', alpha=0.4)
-                    chart_name = f"dist_version_{vs.version}.png"
-                    chart_path = os.path.join(tmp, chart_name)
-                    fig.savefig(chart_path, dpi=150, bbox_inches="tight")
+                    ax.legend()
+                    boxplot_path = os.path.join(tmp, "version_boxplot.png")
+                    fig.savefig(boxplot_path, dpi=150, bbox_inches="tight")
                     plt.close(fig)
-                    version_chart_paths.append((vs.version, chart_name))
+
+            # Generate Chart 4: Scatter Plot — Item Difficulty vs. Discrimination
+            if getattr(report, "item_psychometrics", []):
+                fig, ax = plt.subplots(figsize=(7, 5))
+                diffs = [ip.p_value for ip in report.item_psychometrics]
+                discs = [ip.discrimination_index for ip in report.item_psychometrics]
+                labels = [f"Q{ip.question_idx+1}" for ip in report.item_psychometrics]
+                ax.scatter(diffs, discs, color="#117A65", edgecolor="#1B4F72", s=80, zorder=5)
+                for i, txt in enumerate(labels):
+                    ax.annotate(txt, (diffs[i], discs[i]), xytext=(5, 5), textcoords="offset points", fontsize=9, fontweight="bold")
+                ax.axvspan(0.3, 0.7, color="#1E8449", alpha=0.1, label="Optimal Difficulty")
+                ax.axhspan(0.3, 1.0, color="#117A65", alpha=0.1, label="Good Discrimination")
+                ax.set_xlabel("Difficulty (p-value)", fontsize=10, fontweight="bold", color="#1B4F72")
+                ax.set_ylabel("Discrimination Index (D)", fontsize=10, fontweight="bold", color="#1B4F72")
+                ax.set_title("Item Difficulty vs. Discrimination", fontsize=12, fontweight="bold", color="#1B4F72")
+                ax.set_xlim(0, 1.05)
+                ax.set_ylim(-0.2, 1.05)
+                ax.grid(linestyle='--', alpha=0.4)
+                ax.legend(loc="lower right")
+                scatter_path = os.path.join(tmp, "item_scatter.png")
+                fig.savefig(scatter_path, dpi=150, bbox_inches="tight")
+                plt.close(fig)
+
+            # Generate Chart 5: Stacked Bar Chart — At-Risk Students by Version
+            if getattr(report, "at_risk_students", []):
+                fig, ax = plt.subplots(figsize=(8, 4))
+                vers = sorted(list(set([vs.version for vs in report.version_stats])))
+                scores = [0, 1, 2]
+                colors = ["#C0392B", "#D35400", "#F39C12"]
+                counts = {s: {v: 0 for v in vers} for s in scores}
+                for stu in report.at_risk_students:
+                    v = stu.get("version", "--")
+                    s = int(stu["score"])
+                    if s in counts and v in vers:
+                        counts[s][v] += 1
+                bottom = np.zeros(len(vers))
+                for s, color in zip(scores, colors):
+                    s_counts = [counts[s][v] for v in vers]
+                    ax.bar(vers, s_counts, bottom=bottom, color=color, edgecolor="#1B4F72", alpha=0.8, label=f"Score {s}")
+                    bottom += np.array(s_counts)
+                ax.set_xlabel("Exam Version", fontsize=10, fontweight="bold", color="#1B4F72")
+                ax.set_ylabel("Number of At-Risk Students", fontsize=10, fontweight="bold", color="#1B4F72")
+                ax.set_title("At-Risk Student Concentration by Version", fontsize=12, fontweight="bold", color="#1B4F72")
+                ax.legend()
+                ax.grid(axis='y', linestyle='--', alpha=0.4)
+                at_risk_chart_path = os.path.join(tmp, "at_risk_bar.png")
+                fig.savefig(at_risk_chart_path, dpi=150, bbox_inches="tight")
+                plt.close(fig)
+
+            # Generate Chart 6: Heatmap — Inter-Item Correlation Matrix
+            if getattr(report, "inter_item_correlation", []):
+                fig, ax = plt.subplots(figsize=(6, 5))
+                mat = np.array(report.inter_item_correlation)
+                n = len(mat)
+                cmap = matplotlib.colors.LinearSegmentedColormap.from_list("rg", ["#C0392B", "#F1C40F", "#1E8449"])
+                cax = ax.matshow(mat, cmap=cmap, vmin=0, vmax=1)
+                fig.colorbar(cax)
+                ax.set_xticks(range(n))
+                ax.set_yticks(range(n))
+                ax.set_xticklabels([f"Q{i+1}" for i in range(n)])
+                ax.set_yticklabels([f"Q{i+1}" for i in range(n)])
+                for i in range(n):
+                    for j in range(n):
+                        val = mat[i, j]
+                        text_color = "white" if val < 0.2 or val > 0.8 else "black"
+                        ax.text(j, i, f"{val:.2f}", ha="center", va="center", color=text_color, fontweight="bold")
+                ax.set_title("Inter-Item Correlation Matrix", pad=20, fontsize=12, fontweight="bold", color="#1B4F72")
+                heatmap_path = os.path.join(tmp, "correlation_heatmap.png")
+                fig.savefig(heatmap_path, dpi=150, bbox_inches="tight")
+                plt.close(fig)
+
+            # Generate Chart 7: Bar Chart — Score Equating Adjustments by Version
+            if getattr(report, "equated_scores", {}):
+                fig, ax = plt.subplots(figsize=(8, 4))
+                vers = list(report.equated_scores.keys())
+                adjs = [eq["adjustment"] for eq in report.equated_scores.values()]
+                colors = ["#1E8449" if a > 0 else "#C0392B" for a in adjs]
+                bars = ax.bar(vers, adjs, color=colors, edgecolor="#1B4F72", alpha=0.8, width=0.6)
+                ax.axhline(0, color="black", linewidth=1.2)
+                ax.set_xlabel("Exam Version", fontsize=10, fontweight="bold", color="#1B4F72")
+                ax.set_ylabel("Equating Adjustment (Points)", fontsize=10, fontweight="bold", color="#1B4F72")
+                ax.set_title("Score Equating Adjustments by Version", fontsize=12, fontweight="bold", color="#1B4F72")
+                ax.grid(axis='y', linestyle='--', alpha=0.4)
+                for bar in bars:
+                    yval = bar.get_height()
+                    offset = 0.05 if yval > 0 else -0.15
+                    ax.text(bar.get_x() + bar.get_width()/2.0, yval + offset, f"{yval:+.3f}", ha='center', va='bottom' if yval>0 else 'top', fontweight="bold", fontsize=9)
+                equating_path = os.path.join(tmp, "equating_bar.png")
+                fig.savefig(equating_path, dpi=150, bbox_inches="tight")
+                plt.close(fig)
 
             _log("Charts generated successfully.", "INFO")
 
@@ -292,6 +382,12 @@ class ReportBuilder:
                     r"	\end{tabular}",
                     r"\end{table}",
                     r"	\begin{center}\textcolor{medgray}{\textit{*Note: Values below 0.15 are highlighted in red as they may indicate items measuring different constructs.}}\end{center}",
+                    "",
+                    r"\begin{figure}[H]",
+                    r"	\centering",
+                    r"	\includegraphics[width=0.65\textwidth]{correlation_heatmap.png}",
+                    r"	\caption{Heatmap of the Inter-Item Correlation Matrix}",
+                    r"\end{figure}",
                 ]
             lines += [
                 "",
@@ -376,20 +472,15 @@ class ReportBuilder:
                 r"\end{figure}",
                 "",
                 r"\newpage",
-                r"\section{Individual Version Score Histograms}",
-            ]
-
-            for ver, chart_name in version_chart_paths:
-                lines += [
-                    r"\begin{figure}[H]",
-                    r"	\centering",
-                    f"	\\includegraphics[width=0.72\\textwidth]{{{chart_name}}}",
-                    f"	\\caption{{Score Distribution for Version {ver}}}",
-                    r"\end{figure}",
-                    "",
-                ]
-
-            lines += [
+                r"\section{Score Distribution by Version (Box Plot)}",
+                r"\begin{figure}[H]",
+                r"	\centering",
+                r"	\includegraphics[width=0.95\textwidth]{version_boxplot.png}",
+                r"	\caption{Box plot comparing score distribution across exam versions}",
+                r"	\vspace{0.5cm}",
+                r"	\textcolor{medgray}{\textit{*Note: Red horizontal line denotes the overall class mean. Boxes indicate interquartile range (IQR).}}",
+                r"\end{figure}",
+                "",
                 r"\newpage",
                 r"\section{Answer Choice Distribution By Question}",
                 r"\begin{table}[H]",
@@ -453,6 +544,12 @@ class ReportBuilder:
                 r"	\end{tabular}%",
                 r"	}",
                 r"\end{table}",
+                "",
+                r"\begin{figure}[H]",
+                r"	\centering",
+                r"	\includegraphics[width=0.75\textwidth]{item_scatter.png}",
+                r"	\caption{Scatter plot of item difficulty (p-value) vs. discrimination (D)}",
+                r"\end{figure}",
                 "",
                 r"\begin{tcolorbox}[width=0.95\textwidth, colback=lightgray, colframe=primary, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
                 r"	\textbf{Psychometrics Standard Threshold Interpretation Reference:}\\",
@@ -607,6 +704,15 @@ class ReportBuilder:
                         r"\end{table}",
                     ]
 
+                lines += [
+                    r"\begin{figure}[H]",
+                    r"	\centering",
+                    r"	\includegraphics[width=0.9\textwidth]{at_risk_bar.png}",
+                    r"	\caption{Stacked bar chart showing the concentration of at-risk students across exam versions}",
+                    r"\end{figure}",
+                    "",
+                ]
+
             stu_list = getattr(report, 'student_analytics', [])
             chunk_size = 25
             for chunk_idx in range(0, len(stu_list), chunk_size):
@@ -693,6 +799,12 @@ class ReportBuilder:
                     r"		\bottomrule",
                     r"	\end{tabular}",
                     r"\end{table}",
+                    "",
+                    r"\begin{figure}[H]",
+                    r"	\centering",
+                    r"	\includegraphics[width=0.9\textwidth]{equating_bar.png}",
+                    r"	\caption{Bar chart visualizing the required mean equating adjustments per version}",
+                    r"\end{figure}",
                 ]
 
             lines += [
