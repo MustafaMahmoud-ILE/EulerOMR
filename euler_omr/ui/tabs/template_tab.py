@@ -173,7 +173,7 @@ class TemplateTab(QWidget):
         self._mark_dirty()
 
     def _browse_logo(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select Logo", "", IMAGE_FILTER)
+        path, _ = QFileDialog.getOpenFileName(self, "Select Logo", os.path.expanduser("~/Documents"), IMAGE_FILTER)
         if path:
             with open(path, "rb") as f:
                 self._logo_bytes = f.read()
@@ -208,7 +208,7 @@ class TemplateTab(QWidget):
         self.btn_save.setEnabled(True)
 
         # Ask where to save the PDF
-        save_path, _ = QFileDialog.getSaveFileName(self, "Save Compiled PDF", "", PDF_FILTER)
+        save_path, _ = QFileDialog.getSaveFileName(self, "Save Compiled PDF", os.path.expanduser("~/Documents"), PDF_FILTER)
         if save_path:
             with open(save_path, "wb") as f:
                 f.write(pdf_bytes)
@@ -239,7 +239,7 @@ class TemplateTab(QWidget):
         if self.file_path:
             path = self.file_path
         else:
-            path, _ = QFileDialog.getSaveFileName(self, "Save Template", "", EOMRT_FILTER)
+            path, _ = QFileDialog.getSaveFileName(self, "Save Template", os.path.expanduser("~/Documents"), EOMRT_FILTER)
             if not path:
                 return
 

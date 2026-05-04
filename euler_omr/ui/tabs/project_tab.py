@@ -242,7 +242,7 @@ class ProjectTab(QWidget):
         self.title_changed.emit(self.tab_title())
 
     def _import_template(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Import Template", "", EOMRT_FILTER)
+        path, _ = QFileDialog.getOpenFileName(self, "Import Template", os.path.expanduser("~/Documents"), EOMRT_FILTER)
         if not path:
             return
         try:
@@ -268,7 +268,7 @@ class ProjectTab(QWidget):
             self.log_panel.append_log(f"Failed to import template: {e}", "ERROR")
 
     def _import_scans(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Import Scans PDF", "", PDF_FILTER)
+        path, _ = QFileDialog.getOpenFileName(self, "Import Scans PDF", os.path.expanduser("~/Documents"), PDF_FILTER)
         if not path:
             return
         self._scans_pdf_path = path
@@ -447,7 +447,7 @@ class ProjectTab(QWidget):
         if self.file_path:
             path = self.file_path
         else:
-            path, _ = QFileDialog.getSaveFileName(self, "Save Project", "", EOMRP_FILTER)
+            path, _ = QFileDialog.getSaveFileName(self, "Save Project", os.path.expanduser("~/Documents"), EOMRP_FILTER)
             if not path:
                 return
         try:
@@ -474,12 +474,12 @@ class ProjectTab(QWidget):
             self.log_panel.append_log(f"Save failed: {e}", "ERROR")
 
     def _run_grading(self):
-        xlsx_path, _ = QFileDialog.getSaveFileName(self, "Save Grades", "", "Excel Files (*.xlsx)")
+        xlsx_path, _ = QFileDialog.getSaveFileName(self, "Save Grades", os.path.expanduser("~/Documents"), "Excel Files (*.xlsx)")
         if not xlsx_path:
             return
         report_path = ""
         if self.chk_analysis.isChecked():
-            report_path, _ = QFileDialog.getSaveFileName(self, "Save Analysis Report", "", "PDF Files (*.pdf)")
+            report_path, _ = QFileDialog.getSaveFileName(self, "Save Analysis Report", os.path.expanduser("~/Documents"), "PDF Files (*.pdf)")
 
         self.overlay.show_progress(0, 4, "Grading...")
         worker = GradeWorker(

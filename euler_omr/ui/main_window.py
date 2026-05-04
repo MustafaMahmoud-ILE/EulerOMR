@@ -141,12 +141,12 @@ class MainWindow(QMainWindow):
         self.tabs.setCurrentIndex(idx)
 
     def _open_project_dialog(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open Project", "", EOMRP_FILTER)
+        path, _ = QFileDialog.getOpenFileName(self, "Open Project", os.path.expanduser("~/Documents"), EOMRP_FILTER)
         if path:
             self._open_file(path)
 
     def _open_template_dialog(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open Template", "", EOMRT_FILTER)
+        path, _ = QFileDialog.getOpenFileName(self, "Open Template", os.path.expanduser("~/Documents"), EOMRT_FILTER)
         if path:
             self._open_file(path)
 
