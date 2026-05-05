@@ -74,7 +74,7 @@ FAIRNESS_THRESHOLD = 0.10  # 10% of max_score
 # TinyTeX download URL
 TINYTEX_DOWNLOAD_URL = (
     "https://github.com/rstudio/tinytex-releases/releases/"
-    "download/v2026.05/TinyTeX-0-windows-v2026.05.zip"
+    "download/v2026.05/TinyTeX-0-windows-v2026.05.exe"
 )
 
 # Version letters
