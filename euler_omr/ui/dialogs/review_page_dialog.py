@@ -129,22 +129,28 @@ class ReviewPageDialog(QDialog):
 
         # Show table and ID crops
         if self._page_img is not None:
-            h, w = self._page_img.shape[:2]
-            # Tight Table crop: [433:688, 157:805]
-            table_crop = self._page_img[433:688, 157:805]
+            # Table crop: [433:688, 157:805]
+            r_table = self._result.crop_regions.get("table", {"y_start": 433, "y_end": 688, "x_start": 157, "x_end": 805})
+            table_crop = self._page_img[r_table["y_start"]:r_table["y_end"], r_table["x_start"]:r_table["x_end"]]
             lbl_table_crop = QLabel()
             lbl_table_crop.setPixmap(self._np_to_pixmap(table_crop))
             lbl_table_crop.setStyleSheet("border: none; background: transparent;")
             id_layout.addWidget(QLabel("Written Data (Name, Course, Date):"))
             id_layout.addWidget(lbl_table_crop)
 
-            # Dynamic Tight ID crop based on digits
-            id_digits = len(self._result.student_id) if self._result.student_id else 14
-            id_x_start = 1479 - (id_digits - 1) * 47.24
-            id_x_min = int(max(0, id_x_start - 35))
-            id_x_max = int(min(w, 1515))
+            # ID crop
+            if "id" in self._result.crop_regions:
+                r_id = self._result.crop_regions["id"]
+                id_crop = self._page_img[r_id["y_start"]:r_id["y_end"], r_id["x_start"]:r_id["x_end"]]
+            else:
+                # Fallback to old logic if region missing
+                h, w = self._page_img.shape[:2]
+                id_digits = len(self._result.student_id) if self._result.student_id else 14
+                id_x_start = 1479 - (id_digits - 1) * 47.24
+                id_x_min = int(max(0, id_x_start - 35))
+                id_x_max = int(min(w, 1515))
+                id_crop = self._page_img[268:660, id_x_min:id_x_max]
 
-            id_crop = self._page_img[268:660, id_x_min:id_x_max]
             lbl_id_crop = QLabel()
             lbl_id_crop.setPixmap(self._np_to_pixmap(id_crop))
             lbl_id_crop.setStyleSheet("border: none; background: transparent;")
@@ -163,9 +169,13 @@ class ReviewPageDialog(QDialog):
         ver_layout = QVBoxLayout(ver_page)
 
         if self._page_img is not None:
-            h, w = self._page_img.shape[:2]
-            # Tight Version crop: [755:820, 157:565]
-            ver_crop = self._page_img[755:820, 157:565]
+            # Version crop
+            if "version" in self._result.crop_regions:
+                r_v = self._result.crop_regions["version"]
+                ver_crop = self._page_img[r_v["y_start"]:r_v["y_end"], r_v["x_start"]:r_v["x_end"]]
+            else:
+                ver_crop = self._page_img[755:820, 157:565]
+
             lbl_ver_crop = QLabel()
             lbl_ver_crop.setPixmap(self._np_to_pixmap(ver_crop))
             lbl_ver_crop.setStyleSheet("border: none; background: transparent;")
@@ -196,18 +206,28 @@ class ReviewPageDialog(QDialog):
             q_layout = QVBoxLayout(q_page)
 
             if self._page_img is not None:
-                h, w = self._page_img.shape[:2]
-                col_idx = q_idx // rows_per_col
-                row_idx = q_idx % rows_per_col
-                if col_idx < len(q_x_starts):
-                    base_x = q_x_starts[col_idx]
-                    y = int(q_y_start + row_idx * 39.37)
-                    cx_start = int(max(0, base_x - 35))
-                    cx_end = int(min(w, base_x + self.active_options * bubble_step_px + 15))
-                    cy_start = int(max(0, y - 22))
-                    cy_end = int(min(h, y + 22))
+                # Question crop
+                q_key = str(q_idx)
+                if q_key in self._result.crop_regions:
+                    r_q = self._result.crop_regions[q_key]
+                    q_crop = self._page_img[r_q["y_start"]:r_q["y_end"], r_q["x_start"]:r_q["x_end"]]
+                else:
+                    # Fallback to old logic
+                    h, w = self._page_img.shape[:2]
+                    col_idx = q_idx // rows_per_col
+                    row_idx = q_idx % rows_per_col
+                    if col_idx < len(q_x_starts):
+                        base_x = q_x_starts[col_idx]
+                        y = int(q_y_start + row_idx * 39.37)
+                        cx_start = int(max(0, base_x - 35))
+                        cx_end = int(min(w, base_x + self.active_options * bubble_step_px + 15))
+                        cy_start = int(max(0, y - 22))
+                        cy_end = int(min(h, y + 22))
+                        q_crop = self._page_img[cy_start:cy_end, cx_start:cx_end]
+                    else:
+                        q_crop = None
 
-                    q_crop = self._page_img[cy_start:cy_end, cx_start:cx_end]
+                if q_crop is not None:
                     lbl_q_crop = QLabel()
                     lbl_q_crop.setPixmap(self._np_to_pixmap(q_crop))
                     lbl_q_crop.setStyleSheet("border: none; background: transparent;")

@@ -47,6 +47,20 @@ class WizardFixerDialog(QDialog):
         self._num_questions = num_questions if num_questions is not None else active_questions
 
         self._current_index = 0
+        self._pdf_doc = None
+        self._last_img_cache = (None, None) # (page_no, img)
+        
+        if self._scans_pdf_bytes:
+            try:
+                self._pdf_doc = pdfium.PdfDocument(self._scans_pdf_bytes)
+            except Exception as e:
+                print(f"WizardFixer: Failed to open PDF from bytes: {e}")
+        elif self._scans_pdf_path and os.path.exists(self._scans_pdf_path):
+            try:
+                self._pdf_doc = pdfium.PdfDocument(self._scans_pdf_path)
+            except Exception as e:
+                print(f"WizardFixer: Failed to open PDF from path: {e}")
+
         self._build_ui()
         self._load_current_page()
 
@@ -122,25 +136,28 @@ class WizardFixerDialog(QDialog):
         main_layout.addLayout(nav_layout)
 
     def _get_page_image(self, page_no):
+        if self._last_img_cache[0] == page_no:
+            return self._last_img_cache[1]
+
         img_bgr = None
-        if self._scans_pdf_path and os.path.exists(self._scans_pdf_path):
+        if self._pdf_doc:
             try:
-                img_bgr = ScanReader.load_pdf_page(self._scans_pdf_path, page_no - 1)
-            except Exception as e:
-                print(f"Failed to extract page image from file: {e}")
-        elif self._scans_pdf_bytes:
-            try:
-                doc = pdfium.PdfDocument(self._scans_pdf_bytes)
-                page = doc[page_no - 1]
+                page = self._pdf_doc[page_no - 1]
                 bitmap = page.render(scale=200 / 72.0)
                 img = bitmap.to_numpy()
                 if img.shape[2] == 4:
                     img_bgr = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
                 elif img.shape[2] == 3:
                     img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-                doc.close()
             except Exception as e:
-                print(f"Failed to extract page image from bytes: {e}")
+                print(f"Failed to extract page image {page_no}: {e}")
+        
+        if img_bgr is None and self._scans_pdf_path and os.path.exists(self._scans_pdf_path):
+            # Fallback if doc failed or we are using path-based loading
+            try:
+                img_bgr = ScanReader.load_pdf_page(self._scans_pdf_path, page_no - 1)
+            except Exception as e:
+                print(f"Failed to extract page image from file: {e}")
 
         # Correct orientation and apply perspective transformation to the page
         if img_bgr is not None:
@@ -155,7 +172,21 @@ class WizardFixerDialog(QDialog):
                     marks = sr._find_corner_marks(gray)
                 if marks is not None:
                     img_bgr = sr._perspective_correct(img_bgr, marks)
+        
+        self._last_img_cache = (page_no, img_bgr)
         return img_bgr
+
+    def _clear_layout(self, layout):
+        if not layout: return
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+            else:
+                sub_layout = item.layout()
+                if sub_layout:
+                    self._clear_layout(sub_layout)
 
     def _np_to_pixmap(self, img_bgr, scale=0.75):
         if img_bgr is None:
@@ -174,157 +205,172 @@ class WizardFixerDialog(QDialog):
         if not self._results:
             return
 
-        r = self._results[self._current_index]
+        from PySide6.QtGui import QCursor
+        self.setCursor(QCursor(Qt.WaitCursor))
+        try:
+            r = self._results[self._current_index]
 
-        # Update progress header
-        self.lbl_progress.setText(f"Correcting Scan Issue: {self._current_index + 1} of {len(self._results)} (Page {r.page_no})")
+            # Update progress header
+            self.lbl_progress.setText(f"Correcting Scan Issue: {self._current_index + 1} of {len(self._results)} (Page {r.page_no})")
 
-        # Clear old issues list
-        for i in reversed(range(self.issues_layout.count())):
-            self.issues_layout.itemAt(i).widget().deleteLater()
+            # Clear old issues list
+            self._clear_layout(self.issues_layout)
 
-        # Add current issues
-        for issue in r.issues:
-            lbl = QLabel(f"• {issue.detail} in '{issue.field_name}'")
-            lbl.setStyleSheet("color: #ffb703; font-size: 13px;")
-            self.issues_layout.addWidget(lbl)
+            # Add current issues
+            for issue in r.issues:
+                lbl = QLabel(f"• {issue.detail} in '{issue.field_name}'")
+                lbl.setStyleSheet("color: #ffb703; font-size: 13px;")
+                self.issues_layout.addWidget(lbl)
 
-        # Clear previous crops from layouts
-        if hasattr(self, "lbl_table_crop") and self.lbl_table_crop:
-            self.lbl_table_crop.deleteLater()
-            self.lbl_table_crop = None
-        if hasattr(self, "lbl_id_crop") and self.lbl_id_crop:
-            self.lbl_id_crop.deleteLater()
-            self.lbl_id_crop = None
-        if hasattr(self, "lbl_ver_crop") and self.lbl_ver_crop:
-            self.lbl_ver_crop.deleteLater()
-            self.lbl_ver_crop = None
+            # Clear previous crops from layouts
+            if hasattr(self, "lbl_table_crop") and self.lbl_table_crop:
+                self.lbl_table_crop.deleteLater()
+                self.lbl_table_crop = None
+            if hasattr(self, "lbl_id_crop") and self.lbl_id_crop:
+                self.lbl_id_crop.deleteLater()
+                self.lbl_id_crop = None
+            if hasattr(self, "lbl_ver_crop") and self.lbl_ver_crop:
+                self.lbl_ver_crop.deleteLater()
+                self.lbl_ver_crop = None
 
-        issue_fields = {i.field_name for i in r.issues}
+            issue_fields = {i.field_name for i in r.issues}
 
-        has_id_issue = any(f == "student_id" or f.startswith("id_") or f.startswith("student_id_") for f in issue_fields)
-        has_ver_issue = any(f == "version" or f.startswith("version_") for f in issue_fields)
-        has_ans_issue = any(f.startswith("q_") for f in issue_fields)
+            has_id_issue = any(f == "student_id" or f.startswith("id_") or f.startswith("student_id_") for f in issue_fields)
+            has_ver_issue = any(f == "version" or f.startswith("version_") for f in issue_fields)
+            has_ans_issue = any(f.startswith("q_") for f in issue_fields)
 
-        # Only show the section that has the issue
-        self.id_group.setVisible(has_id_issue)
-        self.ver_group.setVisible(has_ver_issue)
-        self.ans_group.setVisible(has_ans_issue)
+            # Only show the section that has the issue
+            self.id_group.setVisible(has_id_issue)
+            self.ver_group.setVisible(has_ver_issue)
+            self.ans_group.setVisible(has_ans_issue)
 
-        # Extract current page image for cropping
-        page_img = self._get_page_image(r.page_no)
+            # Extract current page image for cropping
+            page_img = self._get_page_image(r.page_no)
 
-        if page_img is not None:
-            h, w = page_img.shape[:2]
-
-            # Tight Table crop: [433:688, 157:805]
-            if has_id_issue:
-                table_crop = page_img[433:688, 157:805]
-                self.lbl_table_crop = QLabel()
-                self.lbl_table_crop.setPixmap(self._np_to_pixmap(table_crop, scale=0.5625))
-                self.lbl_table_crop.setStyleSheet("border: none; background: transparent;")
-                self.id_layout.insertWidget(0, self.lbl_table_crop)
-
-                # Dynamic Tight ID crop based on digits
-                id_digits = len(r.student_id) if r.student_id else 14
-                id_x_start = 1479 - (id_digits - 1) * 47.24
-                id_x_min = int(max(0, id_x_start - 35))
-                id_x_max = int(min(w, 1515))
-
-                id_crop = page_img[268:660, id_x_min:id_x_max]
-                self.lbl_id_crop = QLabel()
-                self.lbl_id_crop.setPixmap(self._np_to_pixmap(id_crop, scale=0.5625))
-                self.lbl_id_crop.setStyleSheet("border: none; background: transparent;")
-                self.id_layout.insertWidget(1, self.lbl_id_crop)
-
-            # Tight Version crop: [755:820, 157:700]
-            if has_ver_issue:
-                ver_crop = page_img[755:820, 157:700]
-                self.lbl_ver_crop = QLabel()
-                self.lbl_ver_crop.setPixmap(self._np_to_pixmap(ver_crop))
-                self.lbl_ver_crop.setStyleSheet("border: none; background: transparent;")
-                self.ver_layout.insertWidget(0, self.lbl_ver_crop)
-
-        # Populate ID
-        self.txt_id.setText(r.student_id)
-        self.txt_id.setMaxLength(len(r.student_id) if r.student_id else 14)
-
-        # Populate Version
-        if r.version and r.version in VERSION_LETTERS[:self._active_versions]:
-            idx = VERSION_LETTERS.index(r.version) + 1
-            self.cmb_version.setCurrentIndex(idx)
-        else:
-            self.cmb_version.setCurrentIndex(0)
-
-        # Populate Questions & Choices
-        for i in reversed(range(self.ans_layout.count())):
-            self.ans_layout.itemAt(i).widget().deleteLater()
-
-        self._question_combos = {}
-
-        for q_idx in range(self._active_questions):
-            q_field = f"q_{q_idx + 1}"
-            is_problematic = q_field in issue_fields
-
-            # Show ONLY the specific question sections that have the issue
-            if not is_problematic:
-                continue
-
-            q_layout = QHBoxLayout()
-            lbl = QLabel(f"Question {q_idx + 1}:")
-            lbl.setStyleSheet("color: #ffb703; font-weight: bold;")
-            q_layout.addWidget(lbl)
-
-            cmb = QComboBox()
-            cmb.addItem("BLANK")
-            for o_idx in range(self._active_options):
-                cmb.addItem(OPTION_LETTERS[o_idx])
-
-            # Set current value
-            ans = r.answers[q_idx] if q_idx < len(r.answers) else ""
-            if ans and ans in OPTION_LETTERS[:self._active_options]:
-                cmb.setCurrentIndex(OPTION_LETTERS.index(ans) + 1)
-            else:
-                cmb.setCurrentIndex(0)
-
-            q_layout.addWidget(cmb)
-            self._question_combos[q_idx] = cmb
-
-            # Show crop for this question
             if page_img is not None:
-                if str(q_idx) in r.crop_regions or q_idx in r.crop_regions:
-                    rect = r.crop_regions.get(str(q_idx)) or r.crop_regions.get(q_idx)
-                    cy_start, cy_end = rect.get("y_start", 0), rect.get("y_end", 0)
-                    cx_start, cx_end = rect.get("x_start", 0), rect.get("x_end", 0)
-                else:
-                    import math
-                    rows_per_col = math.ceil(self._num_questions / 3)
-                    q_y_start = 868.5
-                    q_x_starts = [204.5, 650.7, 1097.0]
-                    bubble_step_px = 0.6 * (200 / 2.54)
-                    
-                    col_idx = q_idx // rows_per_col
-                    row_idx = q_idx % rows_per_col
-                    if col_idx < len(q_x_starts):
-                        base_x = q_x_starts[col_idx]
-                        y = int(q_y_start + row_idx * 39.37)
-                        cx_start = int(max(0, base_x - 35))
-                        cx_end = int(min(w, base_x + self._active_options * bubble_step_px + 15))
-                        cy_start = int(max(0, y - 22))
-                        cy_end = int(min(h, y + 22))
-                    else:
-                        cx_start, cx_end, cy_start, cy_end = 0, 0, 0, 0
-                
-                if cy_end > cy_start and cx_end > cx_start:
-                    q_crop = page_img[cy_start:cy_end, cx_start:cx_end]
-                    lbl_q_crop = QLabel()
-                    lbl_q_crop.setPixmap(self._np_to_pixmap(q_crop))
-                    lbl_q_crop.setStyleSheet("border: none; background: transparent;")
-                    q_layout.addWidget(lbl_q_crop)
+                h, w = page_img.shape[:2]
 
-            row_widget = QWidget()
-            row_widget.setLayout(q_layout)
-            self.ans_layout.addWidget(row_widget)
+                # Table crop: [433:688, 157:805]
+                if has_id_issue:
+                    r_table = r.crop_regions.get("table", {"y_start": 433, "y_end": 688, "x_start": 157, "x_end": 805})
+                    table_crop = page_img[r_table["y_start"]:r_table["y_end"], r_table["x_start"]:r_table["x_end"]]
+                    self.lbl_table_crop = QLabel()
+                    self.lbl_table_crop.setPixmap(self._np_to_pixmap(table_crop, scale=0.5625))
+                    self.lbl_table_crop.setStyleSheet("border: none; background: transparent;")
+                    self.id_layout.insertWidget(0, self.lbl_table_crop)
+
+                    # ID crop
+                    if "id" in r.crop_regions:
+                        r_id = r.crop_regions["id"]
+                        id_crop = page_img[r_id["y_start"]:r_id["y_end"], r_id["x_start"]:r_id["x_end"]]
+                    else:
+                        id_digits = len(r.student_id) if r.student_id else 14
+                        id_x_start = 1479 - (id_digits - 1) * 47.24
+                        id_x_min = int(max(0, id_x_start - 35))
+                        id_x_max = int(min(w, 1515))
+                        id_crop = page_img[268:660, id_x_min:id_x_max]
+
+                    self.lbl_id_crop = QLabel()
+                    self.lbl_id_crop.setPixmap(self._np_to_pixmap(id_crop, scale=0.5625))
+                    self.lbl_id_crop.setStyleSheet("border: none; background: transparent;")
+                    self.id_layout.insertWidget(1, self.lbl_id_crop)
+
+                # Version crop
+                if has_ver_issue:
+                    if "version" in r.crop_regions:
+                        r_v = r.crop_regions["version"]
+                        ver_crop = page_img[r_v["y_start"]:r_v["y_end"], r_v["x_start"]:r_v["x_end"]]
+                    else:
+                        ver_crop = page_img[755:820, 157:700]
+
+                    self.lbl_ver_crop = QLabel()
+                    self.lbl_ver_crop.setPixmap(self._np_to_pixmap(ver_crop))
+                    self.lbl_ver_crop.setStyleSheet("border: none; background: transparent;")
+                    self.ver_layout.insertWidget(0, self.lbl_ver_crop)
+
+            # Populate ID
+            self.txt_id.setText(r.student_id)
+            self.txt_id.setMaxLength(len(r.student_id) if r.student_id else 14)
+
+            # Populate Version
+            if r.version and r.version in VERSION_LETTERS[:self._active_versions]:
+                idx = VERSION_LETTERS.index(r.version) + 1
+                self.cmb_version.setCurrentIndex(idx)
+            else:
+                self.cmb_version.setCurrentIndex(0)
+
+            # Populate Questions & Choices
+            self._clear_layout(self.ans_layout)
+
+            self._question_combos = {}
+
+            for q_idx in range(self._active_questions):
+                q_field = f"q_{q_idx + 1}"
+                is_problematic = q_field in issue_fields
+
+                # Show ONLY the specific question sections that have the issue
+                if not is_problematic:
+                    continue
+
+                q_layout = QHBoxLayout()
+                lbl = QLabel(f"Question {q_idx + 1}:")
+                lbl.setStyleSheet("color: #ffb703; font-weight: bold;")
+                q_layout.addWidget(lbl)
+
+                cmb = QComboBox()
+                cmb.addItem("BLANK")
+                for o_idx in range(self._active_options):
+                    cmb.addItem(OPTION_LETTERS[o_idx])
+
+                # Set current value
+                ans = r.answers[q_idx] if q_idx < len(r.answers) else ""
+                if ans and ans in OPTION_LETTERS[:self._active_options]:
+                    cmb.setCurrentIndex(OPTION_LETTERS.index(ans) + 1)
+                else:
+                    cmb.setCurrentIndex(0)
+
+                q_layout.addWidget(cmb)
+                self._question_combos[q_idx] = cmb
+
+                # Show crop for this question
+                if page_img is not None:
+                    q_key = str(q_idx)
+                    if q_key in r.crop_regions:
+                        r_q = r.crop_regions[q_key]
+                        cx_start, cx_end = r_q["x_start"], r_q["x_end"]
+                        cy_start, cy_end = r_q["y_start"], r_q["y_end"]
+                    else:
+                        import math
+                        rows_per_col = math.ceil(self._num_questions / 3)
+                        q_y_start = 868.5
+                        q_x_starts = [204.5, 650.7, 1097.0]
+                        bubble_step_px = 0.6 * (200 / 2.54)
+                        
+                        col_idx = q_idx // rows_per_col
+                        row_idx = q_idx % rows_per_col
+                        if col_idx < len(q_x_starts):
+                            base_x = q_x_starts[col_idx]
+                            y = int(q_y_start + row_idx * 39.37)
+                            cx_start = int(max(0, base_x - 35))
+                            cx_end = int(min(w, base_x + self._active_options * bubble_step_px + 15))
+                            cy_start = int(max(0, y - 22))
+                            cy_end = int(min(h, y + 22))
+                        else:
+                            cx_start, cx_end, cy_start, cy_end = 0, 0, 0, 0
+                    
+                    if cy_end > cy_start and cx_end > cx_start:
+                        q_crop = page_img[cy_start:cy_end, cx_start:cx_end]
+                        lbl_q_crop = QLabel()
+                        lbl_q_crop.setPixmap(self._np_to_pixmap(q_crop))
+                        lbl_q_crop.setStyleSheet("border: none; background: transparent;")
+                        q_layout.addWidget(lbl_q_crop)
+
+                row_widget = QWidget()
+                row_widget.setLayout(q_layout)
+                self.ans_layout.addWidget(row_widget)
+        
+        finally:
+            self.unsetCursor()
 
         # Navigation controls availability
         self.btn_back.setEnabled(self._current_index > 0)
@@ -390,3 +436,9 @@ class WizardFixerDialog(QDialog):
 
     def get_results(self) -> list[ScanResult]:
         return self._results
+
+    def closeEvent(self, event):
+        if self._pdf_doc:
+            self._pdf_doc.close()
+            self._pdf_doc = None
+        super().closeEvent(event)

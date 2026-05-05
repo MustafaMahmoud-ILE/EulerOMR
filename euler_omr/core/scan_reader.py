@@ -313,6 +313,16 @@ class ScanReader:
         id_x_start = int(x_last_col_center - (self.id_digits - 1) * bubble_step_px)
         id_y_start = 287
 
+        # Store ID region for review UI
+        result.crop_regions["id"] = {
+            "x_start": int(max(0, id_x_start - 35)),
+            "y_start": int(max(0, id_y_start - 30)),
+            "x_end": int(min(w, x_last_col_center + 35)),
+            "y_end": int(min(h, id_y_start + 9 * row_step_px + 30))
+        }
+        # Table region (Written data)
+        result.crop_regions["table"] = {"x_start": 157, "y_start": 433, "x_end": 805, "y_end": 688}
+
         student_id = ""
         for digit_col in range(self.id_digits):
             x = int(id_x_start + digit_col * bubble_step_px)
@@ -369,6 +379,14 @@ class ScanReader:
         # --- Read Version bubble ---
         version_x_start = 176
         version_y = 778
+
+        # Store Version region for review UI
+        result.crop_regions["version"] = {
+            "x_start": int(max(0, version_x_start - 35)),
+            "y_start": int(max(0, version_y - 30)),
+            "x_end": int(min(w, version_x_start + (self.active_versions - 1) * bubble_step_px + 35)),
+            "y_end": int(min(h, version_y + 30))
+        }
 
         best_version = -1
         best_ratio = 0.0
@@ -481,6 +499,14 @@ class ScanReader:
                 ))
             else:
                 answers.append(OPTION_LETTERS[best_option])
+
+            # Store Question region for review UI
+            result.crop_regions[str(q_idx)] = {
+                "x_start": int(max(0, base_x - 35)),
+                "y_start": int(max(0, y - 22)),
+                "x_end": int(min(w, base_x + (self.active_options - 1) * bubble_step_px + 35)),
+                "y_end": int(min(h, y + 22))
+            }
 
         result.answers = answers
         result.issues = issues
