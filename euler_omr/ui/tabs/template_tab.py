@@ -257,7 +257,7 @@ class TemplateTab(QWidget):
     def _set_form_enabled(self, enabled):
         for w in [self.txt_institution, self.sp_id_digits, self.sp_versions,
                    self.sp_questions, self.sp_options, self.btn_compile,
-                   self.btn_save, self.btn_logo]:
+                   self.btn_logo]:
             w.setEnabled(enabled)
 
     def tab_title(self) -> str:

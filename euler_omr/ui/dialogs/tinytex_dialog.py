@@ -8,17 +8,34 @@ from euler_omr.ui.widgets.log_panel import LogPanel
 
 
 class _DownloadWorker(BaseWorker):
-    def __init__(self, url, dest):
+    def __init__(self, url):
         super().__init__()
         self.url = url
-        self.dest = dest
 
     def run(self):
         try:
             import urllib.request
+            import zipfile
+            import tempfile
+            import os
+
+            dest = os.path.join(tempfile.gettempdir(), "TinyTeX.zip")
             self._log(f"Downloading from {self.url}...", "INFO")
-            urllib.request.urlretrieve(self.url, self.dest, self._progress_hook)
-            self.signals.result.emit(self.dest)
+            urllib.request.urlretrieve(self.url, dest, self._progress_hook)
+            
+            self._log("Extracting TinyTeX to C:/TinyTeX...", "INFO")
+            extract_dir = "C:/"
+            with zipfile.ZipFile(dest, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+            
+            # Clean up zip
+            try:
+                os.remove(dest)
+            except Exception:
+                pass
+            
+            self._log("Extraction complete! You can now compile templates.", "INFO")
+            self.signals.result.emit(os.path.join(extract_dir, "TinyTeX", "bin", "windows", "pdflatex.exe"))
             self.signals.finished.emit()
         except Exception as e:
             self.signals.error.emit(str(e))
@@ -42,7 +59,7 @@ class TinyTexInstallDialog(QDialog):
             "TinyTeX is a minimal LaTeX distribution (~200 MB)."
         ))
 
-        self.btn_download = QPushButton("Download and Install TinyTeX")
+        self.btn_download = QPushButton("Download and Extract TinyTeX")
         self.btn_download.clicked.connect(self._download)
         layout.addWidget(self.btn_download)
 
@@ -59,8 +76,7 @@ class TinyTexInstallDialog(QDialog):
 
     def _download(self):
         self.btn_download.setEnabled(False)
-        dest = os.path.join(tempfile.gettempdir(), "TinyTeX-installer.exe")
-        worker = _DownloadWorker(TINYTEX_DOWNLOAD_URL, dest)
+        worker = _DownloadWorker(TINYTEX_DOWNLOAD_URL)
         worker.signals.progress.connect(lambda c, t: self.progress.setValue(c))
         worker.signals.log.connect(self.log_panel.append_log)
         worker.signals.result.connect(self._on_downloaded)
@@ -69,11 +85,5 @@ class TinyTexInstallDialog(QDialog):
         QThreadPool.globalInstance().start(worker)
 
     def _on_downloaded(self, path):
-        self.log_panel.append_log(f"Downloaded to {path}", "INFO")
-        self.log_panel.append_log("Running installer...", "INFO")
-        import subprocess
-        try:
-            subprocess.Popen([path], shell=True)
-            self.log_panel.append_log("Installer launched. Please restart after installation.", "INFO")
-        except Exception as e:
-            self.log_panel.append_log(f"Failed to run installer: {e}", "ERROR")
+        self.log_panel.append_log(f"TinyTeX is ready at {path}. You can close this dialog.", "INFO")
+

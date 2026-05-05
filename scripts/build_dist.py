@@ -46,7 +46,17 @@ def main():
     print(f"Zipping the build into {zip_path}.zip...")
     shutil.make_archive(zip_path, 'zip', "dist", "EulerOMR")
     
-    print("Build and packaging complete! Your artifact is ready at:")
+    # 4. Create an installer using Inno Setup
+    iscc_path = r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+    installer_script = os.path.join("scripts", "installer_setup.iss")
+    if os.path.exists(iscc_path) and os.path.exists(installer_script):
+        print("Running Inno Setup Compiler...")
+        subprocess.run([iscc_path, installer_script], check=True)
+        print(f" -> dist/EulerOMR_Setup_v{version}.exe")
+    else:
+        print("Skipping installer build (Inno Setup not found).")
+    
+    print("Build and packaging complete! Your artifacts are ready at:")
     print(f" -> {zip_path}.zip")
 
 if __name__ == "__main__":

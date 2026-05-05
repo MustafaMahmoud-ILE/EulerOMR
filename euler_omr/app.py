@@ -15,8 +15,19 @@ class EulerApp(QApplication):
         self.setApplicationName(APP_NAME)
         self.setOrganizationName(ORG_NAME)
 
+        # Set AppUserModelID for Windows taskbar icon
+        if os.name == 'nt':
+            import ctypes
+            myappid = f'{ORG_NAME}.{APP_NAME}.1.1.0'.replace(" ", "")
+            try:
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+            except Exception:
+                pass
+
         # Set app icon
-        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "logo.png")
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "icons", "app.ico")
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "logo.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 

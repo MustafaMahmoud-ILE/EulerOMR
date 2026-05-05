@@ -69,10 +69,21 @@ class MainWindow(QMainWindow):
         # --- Welcome Tab ---
         self._add_welcome_tab()
 
+        # Check for updates
+        from euler_omr.core.updater import Updater
+        self._updater = Updater()
+        self._updater.update_available.connect(self._show_update_dialog)
+        self._updater.check_for_updates()
+
         # --- Restore Geometry ---
         geom = self._config.load_geometry()
         if geom:
             self.restoreGeometry(geom)
+
+    def _show_update_dialog(self, update_info):
+        from euler_omr.ui.dialogs.update_dialog import UpdateDialog
+        dlg = UpdateDialog(update_info["version"], update_info["release_notes"], update_info["download_url"], self)
+        dlg.exec()
 
     def _create_menus(self):
         menu_bar = self.menuBar()
