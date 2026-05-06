@@ -103,8 +103,8 @@ class GradeRecord:
     """Grade result for a single student."""
     student_id: str
     version: str
-    score: int
-    max_score: int
+    score: float
+    max_score: float
     answers: list[str] = field(default_factory=list)
     percentage: float = 0.0
 

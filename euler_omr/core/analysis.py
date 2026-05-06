@@ -47,8 +47,8 @@ class VersionStats:
     median: float = 0.0
     mode: float = 0.0
     stddev: float = 0.0
-    min_score: int = 0
-    max_score_val: int = 0
+    min_score: float = 0.0
+    max_score_val: float = 0.0
     scores: list[float] = field(default_factory=list)
 
 
@@ -69,7 +69,7 @@ class VersionOutlier:
 
 @dataclass
 class ScoreDistEntry:
-    score: int
+    score: float
     count: int
     percentage: float
 
@@ -93,8 +93,8 @@ class AnalysisReport:
     overall_median: float = 0.0
     overall_mode: float = 0.0
     overall_stddev: float = 0.0
-    overall_min: int = 0
-    overall_max: int = 0
+    overall_min: float = 0.0
+    overall_max: float = 0.0
     overall_scores: list[float] = field(default_factory=list)
     score_distribution: list[ScoreDistEntry] = field(default_factory=list)
     version_stats: list[VersionStats] = field(default_factory=list)
@@ -112,7 +112,7 @@ class AnalysisReport:
     kruskal_p: float = 1.0
     grand_mean_versions: float = 0.0
     std_version_means: float = 0.0
-    max_score: int = 0
+    max_score: float = 0.0
     total_students: int = 0
     active_options: list[str] = field(default_factory=list)
     cronbach_alpha: float = 0.0
@@ -256,7 +256,8 @@ class AnalysisEngine:
         report.active_options = sorted(all_options)
 
         # Score distribution
-        for s in range(0, report.max_score + 1):
+        unique_scores = sorted(list(set(all_scores)))
+        for s in unique_scores:
             cnt = all_scores.count(s)
             pct = round(cnt / len(all_scores) * 100, 1)
             report.score_distribution.append(ScoreDistEntry(score=s, count=cnt, percentage=pct))
