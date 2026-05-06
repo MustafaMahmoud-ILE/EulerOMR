@@ -3,7 +3,7 @@ import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QPushButton,
     QSplitter, QFileDialog, QGroupBox, QCheckBox, QTableView, QHeaderView,
-    QAbstractItemView, QMessageBox
+    QAbstractItemView, QMessageBox, QScrollArea
 )
 from PySide6.QtCore import Qt, Signal, QAbstractTableModel, QModelIndex, QThreadPool
 from PySide6.QtGui import QColor, QBrush
@@ -115,9 +115,15 @@ class ProjectTab(QWidget):
         vsplit = QSplitter(Qt.Orientation.Vertical)
         hsplit = QSplitter(Qt.Orientation.Horizontal)
 
-        # === Left Controls ===
-        left = QWidget()
-        ll = QVBoxLayout(left)
+        # === Left Controls (Scrollable Sidebar) ===
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll_area.setMaximumWidth(320)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        left_container = QWidget()
+        ll = QVBoxLayout(left_container)
         ll.setContentsMargins(12, 12, 8, 8)
 
         grp = QGroupBox("Project Controls")
@@ -194,7 +200,7 @@ class ProjectTab(QWidget):
 
         ll.addWidget(grp)
         ll.addStretch()
-        left.setMaximumWidth(320)
+        scroll_area.setWidget(left_container)
 
         # === Right Panel: Table + Summary ===
         right = QWidget()
@@ -221,7 +227,7 @@ class ProjectTab(QWidget):
         summary.addWidget(self.lbl_issues)
         rl.addLayout(summary)
 
-        hsplit.addWidget(left)
+        hsplit.addWidget(scroll_area)
         hsplit.addWidget(right)
         hsplit.setStretchFactor(0, 0)
         hsplit.setStretchFactor(1, 1)
@@ -368,7 +374,9 @@ class ProjectTab(QWidget):
         else:
             self.lbl_issues.setObjectName("success_label")
             self.btn_wizard_fixer.setEnabled(False)
-        self.lbl_issues.setStyleSheet("")  # Force re-apply
+        
+        self.lbl_issues.style().unpolish(self.lbl_issues)
+        self.lbl_issues.style().polish(self.lbl_issues)
         self._update_grading_button()
 
     def _open_wizard_fixer(self):

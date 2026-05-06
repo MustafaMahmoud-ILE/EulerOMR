@@ -69,12 +69,20 @@ QTabBar::tab:hover:!selected {
     background-color: #0f4339;
 }
 QTabBar::close-button {
-    subcontrol-position: right;
-    padding: 2px;
+    image: url("assets/svgs/close-svgrepo-com.svg");
 }
 QTabBar::close-button:hover {
     background-color: #e63946;
-    color: #f0f6f6;
+    border-radius: 2px;
+}
+
+/* === Scroll Area === */
+QScrollArea {
+    background-color: #041010;
+    border: none;
+}
+QScrollArea > QWidget > QWidget {
+    background-color: transparent;
 }
 
 /* === Buttons === */

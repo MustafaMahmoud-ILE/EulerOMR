@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QTabWidget, QMenuBar, QMenu, QStatusBar,
     QFileDialog, QMessageBox, QApplication
 )
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QUrl, QSize
 from PySide6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent
 
 from euler_omr.constants import (
@@ -56,6 +56,8 @@ class MainWindow(QMainWindow):
         self.tabs.setTabsClosable(True)
         self.tabs.setMovable(True)
         self.tabs.tabCloseRequested.connect(self._on_tab_close_requested)
+        # Control the close button icon size programmatically
+        self.tabs.tabBar().setIconSize(QSize(14, 14))
         self.setCentralWidget(self.tabs)
 
         # --- Menu Bar ---

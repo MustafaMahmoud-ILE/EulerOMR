@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import math
+import concurrent.futures
+import multiprocessing
 from typing import Callable
 
 import cv2
@@ -24,6 +26,19 @@ class ScanReadError(Exception):
     pass
 
 
+def _process_page_worker(pdf_path, page_idx, reader_config):
+    # Reconstruct ScanReader in worker process
+    from euler_omr.core.scan_reader import ScanReader
+    reader = ScanReader(*reader_config)
+    
+    img = reader.load_pdf_page(pdf_path, page_idx)
+    logs = []
+    def log_collector(msg, level):
+        logs.append((msg, level))
+    
+    result = reader.read_page(img, page_no=page_idx + 1, log_callback=log_collector)
+    return result, logs
+
 class ScanReader:
     """Reads scanned OMR sheets from a PDF file."""
 
@@ -42,6 +57,16 @@ class ScanReader:
         self.active_options = active_options
         self.active_versions = active_versions
         self.num_questions = num_questions if num_questions is not None else active_questions
+
+    def _get_config_tuple(self):
+        return (
+            self.id_digits,
+            self.num_versions,
+            self.active_questions,
+            self.active_options,
+            self.active_versions,
+            self.num_questions
+        )
 
     @staticmethod
     def load_pdf_pages(pdf_path: str) -> list[np.ndarray]:
@@ -538,17 +563,41 @@ class ScanReader:
         log_callback: Callable[[str, str], None] | None = None,
         cancel_check: Callable[[], bool] | None = None,
     ) -> list[ScanResult]:
-        """Read all pages from a PDF and return scan results."""
+        """Read all pages from a PDF and return scan results using multiprocessing."""
         page_count = self.get_pdf_page_count(pdf_path)
-        results = []
-
-        for i in range(page_count):
-            if cancel_check and cancel_check():
-                break
-            img = self.load_pdf_page(pdf_path, i)
-            result = self.read_page(img, page_no=i + 1, log_callback=log_callback)
-            results.append(result)
-            if progress_callback:
-                progress_callback(i + 1, page_count)
-
-        return results
+        results = [None] * page_count
+        
+        # Use ProcessPoolExecutor for parallel processing
+        num_workers = min(multiprocessing.cpu_count(), 8)
+        config = self._get_config_tuple()
+        
+        with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+            future_to_page = {
+                executor.submit(_process_page_worker, pdf_path, i, config): i 
+                for i in range(page_count)
+            }
+            
+            completed = 0
+            for future in concurrent.futures.as_completed(future_to_page):
+                if cancel_check and cancel_check():
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    break
+                    
+                page_idx = future_to_page[future]
+                try:
+                    result, logs = future.result()
+                    results[page_idx] = result
+                    
+                    if log_callback:
+                        for msg, level in logs:
+                            log_callback(msg, level)
+                            
+                except Exception as e:
+                    if log_callback:
+                        log_callback(f"Error processing page {page_idx + 1}: {e}", "ERROR")
+                
+                completed += 1
+                if progress_callback:
+                    progress_callback(completed, page_count)
+        
+        return [r for r in results if r is not None]

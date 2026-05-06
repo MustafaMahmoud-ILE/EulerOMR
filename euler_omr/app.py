@@ -58,12 +58,27 @@ class EulerApp(QApplication):
             old_btn_press(btn_self, event)
         QPushButton.mousePressEvent = new_btn_press
 
-        old_msg_exec = QMessageBox.exec
-        def new_msg_exec(msg_self, *args, **kwargs):
+        def _play_alert_sound():
             from euler_omr.core.sound_manager import SoundManager
             SoundManager.play_alert()
+
+        # Patch instance methods
+        old_msg_exec = QMessageBox.exec
+        def new_msg_exec(msg_self, *args, **kwargs):
+            _play_alert_sound()
             return old_msg_exec(msg_self, *args, **kwargs)
         QMessageBox.exec = new_msg_exec
+        QMessageBox.exec_ = new_msg_exec # Cover both
+
+        # Patch static methods
+        for name in ["information", "warning", "critical", "question", "about"]:
+            old_static = getattr(QMessageBox, name)
+            def wrapper(old_func):
+                def wrapped(*args, **kwargs):
+                    _play_alert_sound()
+                    return old_func(*args, **kwargs)
+                return wrapped
+            setattr(QMessageBox, name, wrapper(old_static))
 
         # Global exception handler
         sys.excepthook = self._exception_hook

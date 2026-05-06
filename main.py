@@ -7,6 +7,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
 def main():
+    import multiprocessing
+    multiprocessing.freeze_support()
+    
     from euler_omr.logger import setup_logging
     setup_logging()
 

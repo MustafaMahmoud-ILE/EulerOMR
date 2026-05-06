@@ -2,7 +2,7 @@
 import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QSpinBox,
-    QPushButton, QSplitter, QFileDialog, QFormLayout, QGroupBox, QSizePolicy
+    QPushButton, QSplitter, QFileDialog, QFormLayout, QGroupBox, QSizePolicy, QScrollArea
 )
 from PySide6.QtCore import Qt, Signal, QThreadPool
 from PySide6.QtGui import QPixmap, QImage
@@ -46,9 +46,15 @@ class TemplateTab(QWidget):
         vsplit = QSplitter(Qt.Orientation.Vertical)
         hsplit = QSplitter(Qt.Orientation.Horizontal)
 
-        # === Left Form Panel ===
-        left = QWidget()
-        left_layout = QVBoxLayout(left)
+        # === Left Form Panel (Scrollable Sidebar) ===
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll_area.setMaximumWidth(380)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
+        left_container = QWidget()
+        left_layout = QVBoxLayout(left_container)
         left_layout.setContentsMargins(12, 12, 8, 8)
 
         form_group = QGroupBox("Template Settings")
@@ -118,12 +124,12 @@ class TemplateTab(QWidget):
         left_layout.addWidget(self.btn_save)
 
         left_layout.addStretch()
-        left.setMaximumWidth(380)
+        scroll_area.setWidget(left_container)
 
         # === Right Preview Panel ===
         self.preview = ImagePreview()
 
-        hsplit.addWidget(left)
+        hsplit.addWidget(scroll_area)
         hsplit.addWidget(self.preview)
         hsplit.setStretchFactor(0, 0)
         hsplit.setStretchFactor(1, 1)
