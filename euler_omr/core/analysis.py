@@ -474,7 +474,7 @@ class AnalysisEngine:
         report.split_half_reliability = round(split_half, 3)
 
         # ── 6. Student Analytics ──
-        for g in grades:
+        for g_idx, g in enumerate(grades):
             below = sum(1 for s in all_scores if s < g.score)
             equal = sum(1 for s in all_scores if s == g.score)
             percentile = (below + 0.5 * equal) / len(all_scores) * 100 if all_scores else 0.0
@@ -499,7 +499,7 @@ class AnalysisEngine:
             for t_idx in range(num_topics):
                 q_start = t_idx * 5
                 q_end = min(active_questions, q_start + 5)
-                topic_correct = sum(student_item_correct[all_scores.index(g.score)][q] for q in range(q_start, q_end))
+                topic_correct = sum(student_item_correct[g_idx][q] for q in range(q_start, q_end))
                 topic_total = q_end - q_start
                 if topic_total > 0 and (topic_correct / topic_total) < 0.6:
                     weaknesses.append(f"Domain {t_idx + 1}")

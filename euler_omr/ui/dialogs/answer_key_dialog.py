@@ -101,6 +101,9 @@ class AnswerKeyDialog(QDialog):
             grid.addWidget(err, row, self.active_options + 2)
             self._error_labels[version][q_idx] = err
 
+        # Add a stretch at the bottom to keep rows compact
+        grid.setRowStretch(self.active_questions + 1, 1)
+
         scroll.setWidget(content)
         return scroll
 

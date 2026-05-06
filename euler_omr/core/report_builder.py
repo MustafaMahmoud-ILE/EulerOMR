@@ -23,13 +23,14 @@ class ReportBuilder:
         try:
             # Generate Chart 1: Grade distribution histogram
             fig, ax = plt.subplots(figsize=(8, 4))
-            bins = range(0, report.max_score + 2)
+            max_s_int = int(report.max_score)
+            bins = range(0, max_s_int + 2)
             ax.hist(report.overall_scores, bins=bins, color="#117A65",
                     edgecolor="#1B4F72", alpha=0.8, rwidth=0.85)
             ax.set_xlabel("Score", fontsize=11, fontweight="bold", color="#1B4F72")
             ax.set_ylabel("Number of Students", fontsize=11, fontweight="bold", color="#1B4F72")
             ax.set_title("Overall Grade Distribution", fontsize=13, fontweight="bold", color="#1B4F72")
-            ax.set_xticks(range(0, report.max_score + 1))
+            ax.set_xticks(range(0, max_s_int + 1))
             ax.grid(axis='y', linestyle='--', alpha=0.5)
             hist_path = os.path.join(tmp, "histogram.png")
             fig.savefig(hist_path, dpi=150, bbox_inches="tight")
@@ -353,6 +354,23 @@ class ReportBuilder:
                 r"\end{table}",
             ]
 
+            # Explanation: Reliability
+            lines += [
+                "",
+                r"\begin{tcolorbox}[width=0.95\textwidth, colback=rowA, colframe=accent, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
+                r"	\textbf{\color{accent}What does this mean?}\\[4pt]",
+                r"	\textbf{Cronbach's Alpha (KR-20)} measures how consistently the test questions work together. Think of it as: ``If a student is good, do all questions agree that the student is good?''\\",
+                r"	\textbf{Split-Half Reliability} splits the test into two halves and checks if both halves give similar results.\\[4pt]",
+                r"	\textbf{Benchmark Scale:}\\",
+                r"	\begin{tabular}{ll}",
+                r"		$\ge 0.90$ & \textcolor{success}{\textbf{Excellent}} --- Very consistent, suitable for high-stakes decisions \\",
+                r"		$0.80 - 0.89$ & \textcolor{success}{\textbf{Good}} --- Reliable enough for classroom grading \\",
+                r"		$0.70 - 0.79$ & \textcolor{warning}{\textbf{Acceptable}} --- Minimally acceptable; consider improving weak items \\",
+                r"		$< 0.70$ & \textcolor{danger}{\textbf{Needs Review}} --- Too inconsistent for reliable grading \\",
+                r"	\end{tabular}",
+                r"\end{tcolorbox}",
+            ]
+
             if getattr(report, "inter_item_correlation", []):
                 n_cols = len(report.inter_item_correlation)
                 lines += [
@@ -409,6 +427,16 @@ class ReportBuilder:
                 r"		\end{tabular}",
                 r"	\end{tcolorbox}",
                 r"\end{center}",
+                "",
+                r"\begin{tcolorbox}[width=0.95\textwidth, colback=rowA, colframe=accent, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
+                r"	\textbf{\color{accent}What does this mean?}\\[4pt]",
+                r"	\textbf{Mean (Average):} The total of all scores divided by the number of students. A class mean around 60--75\% of max score is typical for a well-balanced exam.\\",
+                r"	\textbf{Median:} The middle score when all scores are sorted. If the median is much lower than the mean, a few high scorers are pulling the average up.\\",
+                r"	\textbf{Mode:} The most frequently occurring score --- the ``most common grade.''\\",
+                r"	\textbf{Standard Deviation (Std Dev):} How spread out the scores are. A small value means most students scored similarly; a large value means wide variation.\\",
+                r"	\textbf{Range:} The gap between the lowest and highest score.\\[4pt]",
+                r"	\textbf{Quick Reference:} If Mean $\ge 70\%$ of max score, the exam may be easy. If Mean $\le 40\%$, the exam may be too hard or poorly taught.",
+                r"\end{tcolorbox}",
                 "",
                 r"\section{Score Distributions}",
                 r"\begin{table}[H]",
@@ -471,6 +499,12 @@ class ReportBuilder:
                 r"	\caption{Mean score comparison across exam versions}",
                 r"\end{figure}",
                 "",
+                r"\begin{tcolorbox}[width=0.95\textwidth, colback=rowA, colframe=accent, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
+                r"	\textbf{\color{accent}What does this mean?}\\[4pt]",
+                r"	\textbf{Per-Version Stats} compares how students performed on each version of the exam (A, B, C, etc.).\\[4pt]",
+                r"	\textbf{Why it matters:} If one version's mean is much lower than the others, that version may be unfairly harder. Ideally, all versions should have similar means (within 5--10\% of each other).",
+                r"\end{tcolorbox}",
+                "",
                 r"\newpage",
                 r"\section{Score Distribution by Version (Box Plot)}",
                 r"\begin{figure}[H]",
@@ -480,6 +514,12 @@ class ReportBuilder:
                 r"	\vspace{0.5cm}",
                 r"	\textcolor{medgray}{\textit{*Note: Red horizontal line denotes the overall class mean. Boxes indicate interquartile range (IQR).}}",
                 r"\end{figure}",
+                "",
+                r"\begin{tcolorbox}[width=0.95\textwidth, colback=rowA, colframe=accent, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
+                r"	\textbf{\color{accent}What does this mean?}\\[4pt]",
+                r"	\textbf{Box Plot:} Each ``box'' shows the middle 50\% of scores for a version. The line inside the box is the median (middle score). The ``whiskers'' (lines extending from the box) show the full range, and dots outside are outliers (unusually high or low scores).\\[4pt]",
+                r"	\textbf{How to read it:} A taller box means more variability. If one box is much lower than the others, that version was harder.",
+                r"\end{tcolorbox}",
                 "",
                 r"\newpage",
                 r"\section{Answer Choice Distribution By Question}",
@@ -677,6 +717,18 @@ class ReportBuilder:
                 "",
             ]
 
+            # Explanation: Topic-Based Outcomes
+            lines += [
+                "",
+                r"\begin{tcolorbox}[width=0.95\textwidth, colback=rowA, colframe=accent, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
+                r"	\textbf{\color{accent}What does this mean?}\\[4pt]",
+                r"	\textbf{Topic Domains} group questions into clusters of 5 to identify which content areas students struggle with.\\",
+                r"	\textbf{Difficulty:} The proportion of students who answered correctly (higher = easier).\\",
+                r"	\textbf{Discrimination:} How well the topic separates strong from weak students.\\[4pt]",
+                r"	\textbf{Status:} ``Strong'' ($D \ge 0.30$) means the topic reliably distinguishes student ability. ``Needs Review'' means the questions in that domain may need revision.",
+                r"\end{tcolorbox}",
+            ]
+
             if getattr(report, "at_risk_students", []):
                 at_risk_chunk_size = 25
                 at_risk_list = report.at_risk_students
@@ -758,6 +810,22 @@ class ReportBuilder:
                 r"\end{table}",
             ]
 
+            # Explanation: ANOVA & Kruskal-Wallis
+            lines += [
+                "",
+                r"\begin{tcolorbox}[width=0.95\textwidth, colback=rowA, colframe=accent, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
+                r"	\textbf{\color{accent}What does this mean?}\\[4pt]",
+                r"	\textbf{ANOVA} checks whether the average scores across exam versions are statistically different. It answers: ``Did one version produce significantly different results?''\\",
+                r"	\textbf{Kruskal-Wallis} is a non-parametric alternative that does not assume scores follow a bell curve.\\[4pt]",
+                r"	\textbf{p-value:} The probability that the observed difference happened by pure chance.\\",
+                r"	\begin{tabular}{ll}",
+                r"		$p \ge 0.05$ & \textcolor{success}{\textbf{No significant difference}} --- versions are fair \\",
+                r"		$p < 0.05$ & \textcolor{danger}{\textbf{Significant difference}} --- at least one version is unfairly harder/easier \\",
+                r"	\end{tabular}\\[4pt]",
+                r"	\textbf{Tukey's HSD} (shown below if applicable) identifies exactly \textit{which} version pairs differ.",
+                r"\end{tcolorbox}",
+            ]
+
             if getattr(report, "anova_p", 1.0) < 0.05 and getattr(report, "tukey_hsd_results", []):
                 lines += [
                     r"\vspace{0.5cm}",
@@ -806,6 +874,33 @@ class ReportBuilder:
                     r"	\caption{Bar chart visualizing the required mean equating adjustments per version}",
                     r"\end{figure}",
                 ]
+
+            # Explanation: Score Equating
+            lines += [
+                "",
+                r"\begin{tcolorbox}[width=0.95\textwidth, colback=rowA, colframe=accent, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
+                r"	\textbf{\color{accent}What does this mean?}\\[4pt]",
+                r"	\textbf{Score Equating} compensates for unfair difficulty differences between exam versions. If Version B was harder than Version A, students who took B get a small bonus added to their raw score so the comparison is fair.\\[4pt]",
+                r"	\textbf{How to use it:} Add the ``Equating Adjustment'' value to each student's raw score. Positive = version was harder (bonus). Negative = version was easier (penalty).",
+                r"\end{tcolorbox}",
+            ]
+
+            # Explanation: Student Analytics
+            lines += [
+                "",
+                r"\begin{tcolorbox}[width=0.95\textwidth, colback=rowA, colframe=accent, arc=4pt, boxrule=0.6pt, left=8pt, right=8pt]",
+                r"	\textbf{\color{accent}Student Analytics Glossary}\\[4pt]",
+                r"	\textbf{Percentile Rank (PR):} The percentage of students who scored at or below this student. PR=80\% means the student scored better than 80\% of the class.\\",
+                r"	\textbf{Z-Score:} How many standard deviations a student's score is from the class mean. $Z=0$ means average, $Z>1$ is above average, $Z<-1$ is below average.\\",
+                r"	\textbf{Performance Bands:}\\",
+                r"	\begin{tabular}{ll}",
+                r"		\textbf{Advanced} & $\ge 85\%$ --- Mastery level \\",
+                r"		\textbf{Proficient} & $70\% - 84\%$ --- Strong understanding \\",
+                r"		\textbf{Basic} & $50\% - 69\%$ --- Developing understanding \\",
+                r"		\textbf{Below Basic} & $< 50\%$ --- At-risk; needs intervention \\",
+                r"	\end{tabular}",
+                r"\end{tcolorbox}",
+            ]
 
             lines += [
                 "",

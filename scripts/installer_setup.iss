@@ -2,7 +2,7 @@
 ; This script generates a professional Windows Installer for Euler OMR.
 
 #define AppName "Euler OMR"
-#define AppVersion "1.1.3"
+#define AppVersion "1.1.4"
 #define AppPublisher "Mustafa Mahmoud"
 #define AppURL "https://github.com/MustafaMahmoud-ILE/EulerOMR"
 #define AppExeName "EulerOMR.exe"
