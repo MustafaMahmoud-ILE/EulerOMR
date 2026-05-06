@@ -323,6 +323,18 @@ class ScanReader:
         # Apply adaptive threshold for bubble reading
         _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
+        # Dilation helps connect "zigzag" or "scribble" marks into a solid fill
+        # This makes the reader much more robust against messy student marking.
+        kernel = np.ones((3, 3), np.uint8)
+        binary = cv2.dilate(binary, kernel, iterations=1)
+
+        # Use normalized threshold from constants
+        threshold = FILL_THRESHOLD / 255.0  # e.g., 128/255 approx 0.5
+        # Actually, let's keep it a bit more sensitive (0.3 is good for scribbles)
+        # but let's use the constant if it's set specifically.
+        # For now, let's stick to 0.3 as the base but use the constant's "intent"
+        final_threshold = min(0.3, threshold)
+
         # Estimate bubble positions based on page geometry
         # These are approximate positions based on the LaTeX template at SCAN_DPI
         dpi_scale = SCAN_DPI / 72.0  # Points to pixels
@@ -376,7 +388,7 @@ class ScanReader:
                 filled = cv2.countNonZero(cv2.bitwise_and(roi, roi, mask=mask))
                 ratio = filled / total if total > 0 else 0.0
 
-                if ratio > 0.3:
+                if ratio > final_threshold:
                     filled_count += 1
                     if ratio > best_ratio:
                         best_ratio = ratio
@@ -438,7 +450,7 @@ class ScanReader:
             filled = cv2.countNonZero(cv2.bitwise_and(roi, roi, mask=mask))
             ratio = filled / total if total > 0 else 0.0
 
-            if ratio > 0.3:
+            if ratio > final_threshold:
                 version_filled += 1
                 if ratio > best_ratio:
                     best_ratio = ratio
@@ -502,7 +514,7 @@ class ScanReader:
                 filled = cv2.countNonZero(cv2.bitwise_and(roi, roi, mask=mask))
                 ratio = filled / total if total > 0 else 0.0
 
-                if ratio > 0.3:
+                if ratio > final_threshold:
                     option_filled += 1
                     if ratio > best_ratio:
                         best_ratio = ratio
