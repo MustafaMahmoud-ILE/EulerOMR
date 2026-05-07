@@ -2,48 +2,40 @@
 import os, tempfile
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QProgressBar
 from PySide6.QtCore import QThreadPool
-from euler_omr.constants import TINYTEX_DOWNLOAD_URL
 from euler_omr.workers.base_worker import BaseWorker
 from euler_omr.ui.widgets.log_panel import LogPanel
 
 
 class _DownloadWorker(BaseWorker):
-    def __init__(self, url):
+    def __init__(self):
         super().__init__()
-        self.url = url
 
     def run(self):
         try:
-            import urllib.request
-            import zipfile
-            import tempfile
-            import os
-
-            dest = os.path.join(tempfile.gettempdir(), "TinyTeX.zip")
-            self._log(f"Downloading from {self.url}...", "INFO")
-            urllib.request.urlretrieve(self.url, dest, self._progress_hook)
+            import pytinytex
+            self._log("Starting TinyTeX download and installation...", "INFO")
             
-            self._log("Extracting TinyTeX to C:/TinyTeX...", "INFO")
-            extract_dir = "C:/"
-            with zipfile.ZipFile(dest, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
+            # variation=2 is the extended set and uses .zip on Windows
+            pytinytex.download_tinytex(
+                variation=2, 
+                progress_callback=self._progress_hook
+            )
             
-            # Clean up zip
-            try:
-                os.remove(dest)
-            except Exception:
-                pass
+            pdflatex_path = pytinytex.get_pdflatex_engine()
             
-            self._log("Extraction complete! You can now compile templates.", "INFO")
-            self.signals.result.emit(os.path.join(extract_dir, "TinyTeX", "bin", "windows", "pdflatex.exe"))
+            if pdflatex_path:
+                self._log("TinyTeX installed successfully!", "INFO")
+                self.signals.result.emit(pdflatex_path)
+            else:
+                self._log("TinyTeX installed but pdflatex engine could not be located.", "WARNING")
+            
             self.signals.finished.emit()
         except Exception as e:
             self.signals.error.emit(str(e))
 
-    def _progress_hook(self, block_num, block_size, total_size):
-        if total_size > 0:
-            downloaded = block_num * block_size
-            pct = min(int(downloaded / total_size * 100), 100)
+    def _progress_hook(self, downloaded, total):
+        if total > 0:
+            pct = min(int(downloaded / total * 100), 100)
             self.signals.progress.emit(pct, 100)
 
 
@@ -76,7 +68,7 @@ class TinyTexInstallDialog(QDialog):
 
     def _download(self):
         self.btn_download.setEnabled(False)
-        worker = _DownloadWorker(TINYTEX_DOWNLOAD_URL)
+        worker = _DownloadWorker()
         worker.signals.progress.connect(lambda c, t: self.progress.setValue(c))
         worker.signals.log.connect(self.log_panel.append_log)
         worker.signals.result.connect(self._on_downloaded)

@@ -3,15 +3,16 @@ import os
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import QUrl
 
+from euler_omr.core.path_utils import get_asset_path
+
 
 class SoundManager:
     _active_players = []
 
     @classmethod
     def _play_sound(cls, filename: str):
-        # Path relative to project root
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        sound_path = os.path.abspath(os.path.join(base_dir, "assets", "sounds", filename))
+        # Path resolved via central utility
+        sound_path = get_asset_path("sounds", filename)
         if os.path.exists(sound_path):
             player = QMediaPlayer()
             audio_output = QAudioOutput()

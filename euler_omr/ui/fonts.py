@@ -5,7 +5,8 @@ from PySide6.QtGui import QFontDatabase, QFont
 
 def load_fonts() -> QFont:
     """Load bundled Fixedsys font and return the application font."""
-    fonts_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "fonts")
+    from euler_omr.core.path_utils import get_asset_path
+    fonts_dir = get_asset_path("fonts")
     ttf_loaded = False
     if os.path.isdir(fonts_dir):
         for f in os.listdir(fonts_dir):

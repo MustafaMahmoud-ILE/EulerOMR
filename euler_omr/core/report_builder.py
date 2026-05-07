@@ -59,7 +59,7 @@ class ReportBuilder:
                 vers = [vs.version for vs in report.version_stats if vs.scores]
                 data = [vs.scores for vs in report.version_stats if vs.scores]
                 if vers and data:
-                    ax.boxplot(data, labels=vers, patch_artist=True, boxprops=dict(facecolor="#117A65", color="#1B4F72", alpha=0.7),
+                    ax.boxplot(data, tick_labels=vers, patch_artist=True, boxprops=dict(facecolor="#117A65", color="#1B4F72", alpha=0.7),
                                capprops=dict(color="#1B4F72"), whiskerprops=dict(color="#1B4F72"),
                                flierprops=dict(markerfacecolor="#C0392B", markeredgecolor="#C0392B", marker='o'),
                                medianprops=dict(color="red", linewidth=2))
@@ -205,7 +205,7 @@ class ReportBuilder:
                 r"\renewcommand{\headrulewidth}{0.4pt}",
                 r"\renewcommand{\footrulewidth}{0pt}",
                 "",
-                r"\titleformat{\section}{\large\bfseries\color{primary}}{\thesection.}{0.5em}{}[\titrule]",
+                r"\titleformat{\section}{\large\bfseries\color{primary}}{\thesection.}{0.5em}{}[\titlerule]",
                 r"\titleformat{\subsection}{\normalsize\bfseries\color{accent}}{\thesubsection}{0.5em}{}",
                 "",
                 r"\hypersetup{colorlinks=true, linkcolor=primary, urlcolor=accent}",
@@ -263,7 +263,7 @@ class ReportBuilder:
                     correct_pct = sum(pct_map.get(k, 0.0) for k in corr_keys)
                     incorrect_pcts = {k: v for k, v in pct_map.items() if k not in corr_keys}
                     if incorrect_pcts:
-                        max_inc_k = max(incorrect_pcts, key=incorrect_pcts.get)
+                        max_inc_k = max(incorrect_pcts, key=lambda k: incorrect_pcts[k])
                         max_inc_pct = incorrect_pcts[max_inc_k]
                         all_pcts = list(pct_map.values())
                         pct_range = max(all_pcts) - min(all_pcts) if all_pcts else 0
@@ -297,7 +297,7 @@ class ReportBuilder:
 
             lines += [
                 "",
-                r"% Title Page & Executive Dashboard",
+                r"% Title Page \& Executive Dashboard",
                 r"\begin{titlepage}",
                 r"	\centering",
                 r"	\vspace*{0.5cm}",
@@ -624,7 +624,7 @@ class ReportBuilder:
                     correct_pct = sum(pct_map.get(k, 0.0) for k in corr_keys)
                     incorrect_pcts = {k: v for k, v in pct_map.items() if k not in corr_keys}
                     if incorrect_pcts:
-                        max_inc_k = max(incorrect_pcts, key=incorrect_pcts.get)
+                        max_inc_k = max(incorrect_pcts, key=lambda k: incorrect_pcts[k])
                         max_inc_pct = incorrect_pcts[max_inc_k]
                         if max_inc_pct > correct_pct:
                             ver_recs_added = True
@@ -665,7 +665,7 @@ class ReportBuilder:
                     correct_pct = sum(pct_map.get(k, 0.0) for k in corr_keys)
                     incorrect_pcts = {k: v for k, v in pct_map.items() if k not in corr_keys}
                     if incorrect_pcts:
-                        max_inc_k = max(incorrect_pcts, key=incorrect_pcts.get)
+                        max_inc_k = max(incorrect_pcts, key=lambda k: incorrect_pcts[k])
                         max_inc_pct = incorrect_pcts[max_inc_k]
                         all_pcts = list(pct_map.values())
                         pct_range = max(all_pcts) - min(all_pcts) if all_pcts else 0
@@ -794,7 +794,7 @@ class ReportBuilder:
             lines += [
                 "",
                 r"\newpage",
-                r"\section{Version Analytics & Equality Evaluation}",
+                r"\section{Version Analytics \& Equality Evaluation}",
                 r"\begin{table}[H]",
                 r"	\centering",
                 r"	\caption{Equivalence Testing Summary}",
@@ -926,17 +926,23 @@ class ReportBuilder:
             with open(tex_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))
 
-            pdflatex = TemplateCompiler.find_pdflatex()
-            if pdflatex:
-                import subprocess
-                subprocess.run([pdflatex, "-interaction=nonstopmode", "report.tex"], cwd=tmp, capture_output=True)
-                subprocess.run([pdflatex, "-interaction=nonstopmode", "report.tex"], cwd=tmp, capture_output=True)
-                pdf_src = os.path.join(tmp, "report.pdf")
-                if os.path.exists(pdf_src):
-                    shutil.copy2(pdf_src, output_path)
-                    _log(f"Analysis report saved to {output_path}", "INFO")
-                    return output_path
-            _log("pdflatex not available for report compilation", "WARNING")
-            return ""
+            import pytinytex
+            _log("Compiling report LaTeX (with auto-install enabled)...", "INFO")
+            
+            result = pytinytex.compile(
+                tex_path,
+                engine="pdflatex",
+                num_runs=2,
+                auto_install=True
+            )
+            
+            if result.success and result.pdf_path:
+                shutil.copy2(result.pdf_path, output_path)
+                _log(f"Analysis report saved to {output_path}", "INFO")
+                return output_path
+            else:
+                error_msg = result.errors[0].message if result.errors else "Unknown error"
+                _log(f"Report compilation failed: {error_msg}", "ERROR")
+                return ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

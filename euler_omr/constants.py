@@ -71,11 +71,6 @@ MODERATE_THRESHOLD = 0.40
 CONFUSION_THRESHOLD = 0.35
 FAIRNESS_THRESHOLD = 0.10  # 10% of max_score
 
-# TinyTeX download URL
-TINYTEX_DOWNLOAD_URL = (
-    "https://github.com/rstudio/tinytex-releases/releases/"
-    "download/v2026.05/TinyTeX-0-windows-v2026.05.exe"
-)
 
 # Version letters
 VERSION_LETTERS = [chr(ord('A') + i) for i in range(26)]

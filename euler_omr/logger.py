@@ -23,8 +23,14 @@ class QtLogSignalHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord):
         try:
+            # Skip if the emitter object has been deleted (common during shutdown)
+            if not self.emitter:
+                return
             msg = self.format(record)
             self.emitter.log_record.emit(msg, record.levelname)
+        except (RuntimeError, ReferenceError):
+            # These occur when the underlying C++ object is gone
+            pass
         except Exception:
             self.handleError(record)
 

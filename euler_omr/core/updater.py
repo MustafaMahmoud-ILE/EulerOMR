@@ -27,24 +27,34 @@ class CheckUpdateWorker(BaseWorker):
                 def v_to_tuple(v):
                     return tuple(map(int, v.split('.')))
                 
+            def safe_emit(signal, *args):
+                try:
+                    signal.emit(*args)
+                except (RuntimeError, ReferenceError):
+                    pass
+
+            if latest_version and download_url:
                 try:
                     current = v_to_tuple(APP_VERSION)
                     latest = v_to_tuple(latest_version)
                     if latest > current:
-                        self.signals.result.emit({
+                        safe_emit(self.signals.result, {
                             "version": latest_version,
                             "release_notes": release_notes,
                             "download_url": download_url
                         })
-                        self.signals.finished.emit()
+                        safe_emit(self.signals.finished)
                         return
                 except Exception:
-                    pass # Ignore parsing errors
+                    pass 
                     
-            self.signals.result.emit(None) # No update found
-            self.signals.finished.emit()
+            safe_emit(self.signals.result, None)
+            safe_emit(self.signals.finished)
         except Exception as e:
-            self.signals.error.emit(str(e))
+            try:
+                self.signals.error.emit(str(e))
+            except (RuntimeError, ReferenceError):
+                pass
 
 class Updater(QObject):
     update_available = Signal(dict)

@@ -189,6 +189,7 @@ class TemplateCompiler:
             candidates = [
                 home / "AppData" / "Roaming" / "TinyTeX" / "bin" / "windows" / "pdflatex.exe",
                 home / "AppData" / "Roaming" / "TinyTeX" / "bin" / "win32" / "pdflatex.exe",
+                home / "AppData" / "Roaming" / "TinyTeX" / "bin" / "x64-win32" / "pdflatex.exe",
                 Path("C:/TinyTeX/bin/windows/pdflatex.exe"),
             ]
         elif platform.system() == "Darwin":
@@ -229,24 +230,19 @@ class TemplateCompiler:
     ) -> tuple[str, bytes]:
         """
         Compile a template and return (pdf_path, pdf_bytes).
-        
-        Args:
-            config: Template configuration.
-            logo_bytes: Raw bytes of the logo image, or None for default.
-            logo_ext: Extension of the logo file (without dot).
-            log_callback: Optional callable(str, str) for (message, level).
-            pdflatex_path: Explicit pdflatex path, or None to auto-detect.
-            
-        Returns:
-            Tuple of (pdf_path, pdf_bytes).
-            
-        Raises:
-            TemplateCompileError: If compilation fails.
         """
-        if pdflatex_path is None:
+        import pytinytex
+        
+        # Check if TinyTeX is installed via pytinytex
+        if not pytinytex.get_pdflatex_engine() and pdflatex_path is None:
+            # Fallback to manual search if pytinytex doesn't see its own install
             pdflatex_path = TemplateCompiler.find_pdflatex()
+            
         if pdflatex_path is None:
-            raise TemplateCompileError("pdflatex not found on this system.")
+            pdflatex_path = pytinytex.get_pdflatex_engine()
+            
+        if pdflatex_path is None:
+            raise TemplateCompileError("pdflatex not found. Please install TinyTeX via the Help menu.")
 
         _log = log_callback or (lambda msg, level: None)
 
@@ -271,54 +267,39 @@ class TemplateCompiler:
                 if os.path.exists(default_logo):
                     shutil.copy2(default_logo, os.path.join(assets_dir, "logo.png"))
                 else:
-                    _log("Default logo not found; compilation may fail if \\includegraphics is used.", "WARNING")
+                    _log("Default logo not found.", "WARNING")
 
             # Build and write LaTeX source
             source = TemplateCompiler.build_latex_source(config)
             with open(tex_path, "w", encoding="utf-8") as f:
                 f.write(source)
 
-            _log("Starting pdflatex compilation (pass 1 of 2)...", "INFO")
+            _log("Starting LaTeX compilation (with auto-install enabled)...", "INFO")
+            
+            # Use PyTinyTeX for robust compilation
+            result = pytinytex.compile(
+                tex_path,
+                engine="pdflatex",
+                num_runs=2,
+                auto_install=True
+            )
+            
+            if result.installed_packages:
+                _log(f"Automatically installed packages: {', '.join(result.installed_packages)}", "INFO")
 
-            def _run_pdflatex(log_level_override: str | None = None) -> int:
-                """Run one pdflatex pass, return exit code."""
-                process = subprocess.Popen(
-                    [pdflatex_path, "-interaction=nonstopmode", "-halt-on-error", "template.tex"],
-                    cwd=tmp_dir,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                )
-                for line in process.stdout:
-                    line = line.rstrip()
-                    if not line:
-                        continue
-                    if log_level_override:
-                        _log(line, log_level_override)
-                    elif line.startswith("!") or "Error" in line:
-                        nonlocal last_error_line
-                        last_error_line = line
-                        _log(line, "ERROR")
-                    else:
-                        _log(line, "DEBUG")
-                process.wait()
-                return process.returncode
+            if not result.success:
+                error_msg = "LaTeX compilation failed."
+                if result.errors:
+                    error_msg = f"LaTeX error: {result.errors[0].message} (line {result.errors[0].line})"
+                
+                # Log all errors for the user
+                for err in result.errors:
+                    _log(f"L{err.line}: {err.message}", "ERROR")
+                    
+                raise TemplateCompileError(error_msg)
 
-            last_error_line = ""
-            # Pass 1 — silenced to DEBUG; builds .aux with page anchors for TikZ overlays
-            _run_pdflatex(log_level_override="DEBUG")
-
-            _log("Starting pdflatex compilation (pass 2 of 2)...", "INFO")
-            # Pass 2 — resolves remember picture / overlay coordinates (corner + timing marks)
-            returncode = _run_pdflatex()
-
-            if returncode != 0:
-                raise TemplateCompileError(
-                    f"pdflatex failed (exit code {returncode}): {last_error_line}"
-                )
-
-            pdf_path = os.path.join(tmp_dir, "template.pdf")
-            if not os.path.exists(pdf_path):
+            pdf_path = result.pdf_path
+            if not pdf_path or not os.path.exists(pdf_path):
                 raise TemplateCompileError("pdflatex ran but no PDF was produced.")
 
             with open(pdf_path, "rb") as f:

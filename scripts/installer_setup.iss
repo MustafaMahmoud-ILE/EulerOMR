@@ -2,7 +2,7 @@
 ; This script generates a professional Windows Installer for Euler OMR.
 
 #define AppName "Euler OMR"
-#define AppVersion "1.1.4"
+#define AppVersion "1.1.5"
 #define AppPublisher "Mustafa Mahmoud"
 #define AppURL "https://github.com/MustafaMahmoud-ILE/EulerOMR"
 #define AppExeName "EulerOMR.exe"
@@ -31,6 +31,20 @@ SetupIconFile=..\assets\icons\{#AppIconName}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+ChangesAssociations=yes
+
+[Registry]
+Root: HKA; Subkey: "Software\Classes\.eomrp"; ValueType: string; ValueName: ""; ValueData: "{#AppName}.Project"; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.eomrp\OpenWithProgids"; ValueType: string; ValueName: "{#AppName}.Project"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\{#AppName}.Project"; ValueType: string; ValueName: ""; ValueData: "{#AppName} Project File"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\{#AppName}.Project\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#AppExeName},0"
+Root: HKA; Subkey: "Software\Classes\{#AppName}.Project\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""
+
+Root: HKA; Subkey: "Software\Classes\.eomrt"; ValueType: string; ValueName: ""; ValueData: "{#AppName}.Template"; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.eomrt\OpenWithProgids"; ValueType: string; ValueName: "{#AppName}.Template"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\{#AppName}.Template"; ValueType: string; ValueName: ""; ValueData: "{#AppName} Template File"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\{#AppName}.Template\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#AppExeName},0"
+Root: HKA; Subkey: "Software\Classes\{#AppName}.Template\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
