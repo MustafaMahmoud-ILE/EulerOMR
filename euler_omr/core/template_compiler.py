@@ -231,18 +231,23 @@ class TemplateCompiler:
         """
         Compile a template and return (pdf_path, pdf_bytes).
         """
-        import pytinytex
-        
         # Check if TinyTeX is installed via pytinytex
-        if not pytinytex.get_pdflatex_engine() and pdflatex_path is None:
-            # Fallback to manual search if pytinytex doesn't see its own install
+        try:
+            import pytinytex
+            current_engine = pytinytex.get_pdflatex_engine()
+        except Exception:
+            current_engine = None
+
+        if not current_engine and pdflatex_path is None:
+            # Fallback to manual search (TeX Live, MiKTeX on PATH)
             pdflatex_path = TemplateCompiler.find_pdflatex()
             
-        if pdflatex_path is None:
-            pdflatex_path = pytinytex.get_pdflatex_engine()
-            
-        if pdflatex_path is None:
-            raise TemplateCompileError("pdflatex not found. Please install TinyTeX via the Help menu.")
+        if not current_engine and not pdflatex_path:
+            raise TemplateCompileError(
+                "LaTeX engine (pdflatex) not found. "
+                "Please install TinyTeX via the Help menu or compile again to trigger the installer."
+            )
+
 
         _log = log_callback or (lambda msg, level: None)
 

@@ -11,10 +11,12 @@ def get_root_dir():
         # The base path is the folder containing the executable
         base_path = os.path.dirname(sys.executable)
         
-        # Check if assets is in an 'internal' subdirectory
-        internal_path = os.path.join(base_path, "internal")
+        # Check if assets is in the standard PyInstaller '_internal' subdirectory
+        internal_path = os.path.join(base_path, "_internal")
         if os.path.exists(os.path.join(internal_path, "assets")):
             return internal_path
+            
+        # Fallback to the root directory (where assets is now placed manually)
         return base_path
     else:
         # When running as a script in development

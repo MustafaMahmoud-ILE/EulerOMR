@@ -489,6 +489,15 @@ class ProjectTab(QWidget):
         if self.chk_analysis.isChecked():
             report_path, _ = QFileDialog.getSaveFileName(self, "Save Analysis Report", os.path.expanduser("~/Documents"), "PDF Files (*.pdf)")
 
+        # Pre-flight: if a report is requested, ensure LaTeX is available
+        if report_path:
+            from euler_omr.core.latex_check import ensure_latex_available
+            if not ensure_latex_available(parent=self):
+                self.log_panel.append_log(
+                    "Grading cancelled: LaTeX engine not available for report generation. "
+                    "Please install TinyTeX via Help > Install TinyTeX.", "ERROR")
+                return
+
         self.overlay.show_progress(0, 4, "Grading...")
         worker = GradeWorker(
             self._scan_results, self._answer_keys,
@@ -501,6 +510,7 @@ class ProjectTab(QWidget):
         worker.signals.error.connect(self._on_grade_error)
         worker.signals.result.connect(self._on_grade_result)
         QThreadPool.globalInstance().start(worker)
+
 
     def _on_grade_result(self, result):
         xlsx_path, report_path = result

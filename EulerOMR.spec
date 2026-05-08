@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('assets', 'assets')],
+    datas=[],
     hiddenimports=['pypdfium2', 'cv2', 'PIL', 'openpyxl', 'scipy', 'matplotlib'],
     hookspath=[],
     hooksconfig={},

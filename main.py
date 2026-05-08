@@ -24,6 +24,10 @@ def main():
     app = EulerApp(sys.argv)
 
     if app.is_already_running:
+        # If a file argument was passed, it was already forwarded to the
+        # running instance via the local socket — just exit silently.
+        if len(sys.argv) > 1:
+            sys.exit(0)
         from PySide6.QtWidgets import QMessageBox
         QMessageBox.information(None, "Euler OMR", "Euler OMR is already running.")
         sys.exit(0)

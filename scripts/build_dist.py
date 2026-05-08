@@ -23,7 +23,7 @@ def main():
         "--onedir",
         "--windowed",
         "--icon=assets/icons/app.ico",
-        "--add-data=assets;assets",
+        # We don't use --add-data for assets anymore; we'll copy it manually to the root
         "--hidden-import=pypdfium2",
         "--hidden-import=cv2",
         "--hidden-import=PIL",
@@ -37,8 +37,16 @@ def main():
     
     print("Running PyInstaller...")
     subprocess.run(cmd, check=True)
+
+    # 3. Manually copy assets folder to the root of the dist folder (next to the .exe)
+    dist_root = os.path.join("dist", "EulerOMR")
+    dest_assets = os.path.join(dist_root, "assets")
+    print(f"Moving assets to {dest_assets} (next to the .exe)...")
+    if os.path.exists(dest_assets):
+        shutil.rmtree(dest_assets)
+    shutil.copytree("assets", dest_assets)
     
-    # 3. Create a clean zip for production distribution
+    # 4. Create a clean zip for production distribution
     dist_folder = os.path.join("dist", "EulerOMR")
     zip_name = f"EulerOMR-v{version}-windows"
     zip_path = os.path.join("dist", zip_name)

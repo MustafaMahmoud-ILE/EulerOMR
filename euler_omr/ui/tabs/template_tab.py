@@ -195,6 +195,14 @@ class TemplateTab(QWidget):
             self.log_panel.append_log("Error: Number of questions must be divisible by 3", "ERROR")
             return
 
+        # Pre-flight: ensure LaTeX is available (shows install dialog if needed)
+        from euler_omr.core.latex_check import ensure_latex_available
+        if not ensure_latex_available(parent=self):
+            self.log_panel.append_log(
+                "Compilation cancelled: LaTeX engine not available. "
+                "Please install TinyTeX via Help > Install TinyTeX.", "ERROR")
+            return
+
         config = self._get_config()
         self._set_form_enabled(False)
         self.overlay.show_indeterminate("Compiling template...")
@@ -206,6 +214,7 @@ class TemplateTab(QWidget):
         worker.signals.error.connect(self._on_compile_error)
         self._worker = worker
         QThreadPool.globalInstance().start(worker)
+
 
     def _on_compile_result(self, result):
         pdf_path, pdf_bytes = result

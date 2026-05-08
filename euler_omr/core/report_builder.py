@@ -927,6 +927,20 @@ class ReportBuilder:
                 f.write("\n".join(lines))
 
             import pytinytex
+            
+            # Verify engine is reachable (the UI pre-flight check should have
+            # already handled installation, but guard against edge cases)
+            try:
+                engine_path = pytinytex.get_pdflatex_engine()
+            except Exception:
+                engine_path = None
+                
+            if not engine_path:
+                import shutil as _sh
+                if not _sh.which("pdflatex"):
+                    _log("Report compilation failed: LaTeX engine (pdflatex) not found.", "ERROR")
+                    return ""
+
             _log("Compiling report LaTeX (with auto-install enabled)...", "INFO")
             
             result = pytinytex.compile(
@@ -935,6 +949,7 @@ class ReportBuilder:
                 num_runs=2,
                 auto_install=True
             )
+
             
             if result.success and result.pdf_path:
                 shutil.copy2(result.pdf_path, output_path)
