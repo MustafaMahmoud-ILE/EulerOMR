@@ -46,32 +46,41 @@ Design precise OMR templates, accurately scan and read student answer sheets, re
 
 ---
 
-## 💻 Quick Start & Installation
+## 💻 Installation & Setup
 
-### Option 1: Standalone Release (Recommended for Windows)
-Download the latest production release from the [Releases](https://github.com/MustafaMahmoud-ILE/EulerOMR/releases) page. The application comes fully pre-packaged with all dependencies—just extract and run `EulerOMR.exe`.
+### Option 1: Standalone Release (Recommended)
+Download the latest production release from the [Releases](https://github.com/MustafaMahmoud-ILE/EulerOMR/releases) page. 
 
-*Note: You must have a LaTeX distribution (like TinyTeX or MiKTeX) installed on your system if you wish to generate new templates or PDF reports.*
+**Zero-Config Experience:**
+Starting with **v1.1.5**, you no longer need to pre-install LaTeX. When you first attempt to compile a template or generate a report, Euler OMR will offer to automatically download and configure a minimal LaTeX environment (**TinyTeX**) for you with a single click.
 
-### Option 2: Build from Source
+### Option 2: Run from Source
 ```bash
 # Clone the repository
 git clone https://github.com/MustafaMahmoud-ILE/EulerOMR.git
 cd EulerOMR
 
 # Install dependencies
-pip install -r requirements.txt
+pip install .
 
 # Run the application
 python main.py
 ```
 
 ## 🏗️ Building for Production
-You can compile your own standalone executable using the included automated build script:
+You can compile your own standalone executable and Windows Installer using the included automated build script:
 ```bash
 python scripts/build_dist.py
 ```
-This will generate a `.zip` artifact inside the `dist/` folder containing the optimized `--onedir` PyInstaller build.
+This requires **PyInstaller** and **Inno Setup** (for the `.exe` installer) to be present on your system.
+
+---
+
+## 🌟 What's New in v1.1.5
+- **Automated LaTeX Pipeline:** Integration with `PyTinyTeX` for one-click environment setup.
+- **Enhanced Taskbar Integration:** Full support for Windows taskbar pinning and custom branding.
+- **Seamless File Association:** Double-clicking `.eomrp` or `.eomrt` files now forwards them to the active application instance.
+- **Improved PDF Engine:** Transitioned to `pypdfium2` for faster and more accurate template previews.
 
 ---
 
