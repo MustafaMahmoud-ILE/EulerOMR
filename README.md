@@ -144,7 +144,7 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
 
 ## Author
 
-**Mustafa Mahmoud** — [mustafa.mahmoud@eui.edu.eg](mailto:mustafa.mahmoud@eui.edu.eg)
+**Mustafa Mahmoud** — [mustafa1015104@gmail.com](mailto:mustafa1015104@gmail.com)
 
 <div align="center">
   <sub>Built with precision for academic institutions.</sub>
