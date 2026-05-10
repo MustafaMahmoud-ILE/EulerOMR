@@ -759,7 +759,7 @@ class ReportBuilder:
                 lines += [
                     r"\begin{figure}[H]",
                     r"	\centering",
-                    r"	\includegraphics[width=0.9\textwidth]{at_risk_bar.png}",
+                    r"	\includegraphics[width=0.9\textwidth]{at_risk_bar.pdf}",
                     r"	\caption{Stacked bar chart showing the concentration of at-risk students across exam versions}",
                     r"\end{figure}",
                     "",
@@ -870,7 +870,7 @@ class ReportBuilder:
                     "",
                     r"\begin{figure}[H]",
                     r"	\centering",
-                    r"	\includegraphics[width=0.9\textwidth]{equating_bar.png}",
+                    r"	\includegraphics[width=0.9\textwidth]{equating_bar.pdf}",
                     r"	\caption{Bar chart visualizing the required mean equating adjustments per version}",
                     r"\end{figure}",
                 ]
