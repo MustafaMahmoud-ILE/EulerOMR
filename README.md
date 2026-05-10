@@ -126,7 +126,10 @@ Produces both a portable `.zip` and a Windows installer (`.exe`) via [PyInstalle
 
 ## Changelog
 
-### v1.1.5 — *Latest*
+### v1.1.6 — *Latest*
+- **Vector PDF Report Charts** — Replaced low-resolution PNG charts with high-quality vector PDF graphics in analysis reports for professional output.
+
+### v1.1.5
 - **Automated LaTeX Pipeline** — One-click TinyTeX setup via PyTinyTeX integration
 - **Seamless File Association** — Double-click `.eomrp`/`.eomrt` files to open them in the running instance
 - **Windows Taskbar Branding** — Custom AppUserModelID for proper icon pinning
