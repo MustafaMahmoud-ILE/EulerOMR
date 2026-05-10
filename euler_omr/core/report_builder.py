@@ -32,8 +32,8 @@ class ReportBuilder:
             ax.set_title("Overall Grade Distribution", fontsize=13, fontweight="bold", color="#1B4F72")
             ax.set_xticks(range(0, max_s_int + 1))
             ax.grid(axis='y', linestyle='--', alpha=0.5)
-            hist_path = os.path.join(tmp, "histogram.png")
-            fig.savefig(hist_path, dpi=150, bbox_inches="tight")
+            hist_path = os.path.join(tmp, "histogram.pdf")
+            fig.savefig(hist_path, bbox_inches="tight")
             plt.close(fig)
 
             # Generate Chart 2: Mean comparison bar
@@ -49,8 +49,8 @@ class ReportBuilder:
                            label=f"Overall Mean ({report.overall_mean})")
                 ax.grid(axis='y', linestyle='--', alpha=0.5)
                 ax.legend()
-                bar_path = os.path.join(tmp, "version_bar.png")
-                fig.savefig(bar_path, dpi=150, bbox_inches="tight")
+                bar_path = os.path.join(tmp, "version_bar.pdf")
+                fig.savefig(bar_path, bbox_inches="tight")
                 plt.close(fig)
 
             # Generate Chart 3: Box Plot — Score Distribution per Version
@@ -69,8 +69,8 @@ class ReportBuilder:
                     ax.set_title("Score Distribution Box Plot by Version", fontsize=12, fontweight="bold", color="#1B4F72")
                     ax.grid(axis='y', linestyle='--', alpha=0.4)
                     ax.legend()
-                    boxplot_path = os.path.join(tmp, "version_boxplot.png")
-                    fig.savefig(boxplot_path, dpi=150, bbox_inches="tight")
+                    boxplot_path = os.path.join(tmp, "version_boxplot.pdf")
+                    fig.savefig(boxplot_path, bbox_inches="tight")
                     plt.close(fig)
 
             # Generate Chart 4: Scatter Plot — Item Difficulty vs. Discrimination
@@ -91,8 +91,8 @@ class ReportBuilder:
                 ax.set_ylim(-0.2, 1.05)
                 ax.grid(linestyle='--', alpha=0.4)
                 ax.legend(loc="lower right")
-                scatter_path = os.path.join(tmp, "item_scatter.png")
-                fig.savefig(scatter_path, dpi=150, bbox_inches="tight")
+                scatter_path = os.path.join(tmp, "item_scatter.pdf")
+                fig.savefig(scatter_path, bbox_inches="tight")
                 plt.close(fig)
 
             # Generate Chart 5: Stacked Bar Chart — At-Risk Students by Version
@@ -117,8 +117,8 @@ class ReportBuilder:
                 ax.set_title("At-Risk Student Concentration by Version", fontsize=12, fontweight="bold", color="#1B4F72")
                 ax.legend()
                 ax.grid(axis='y', linestyle='--', alpha=0.4)
-                at_risk_chart_path = os.path.join(tmp, "at_risk_bar.png")
-                fig.savefig(at_risk_chart_path, dpi=150, bbox_inches="tight")
+                at_risk_chart_path = os.path.join(tmp, "at_risk_bar.pdf")
+                fig.savefig(at_risk_chart_path, bbox_inches="tight")
                 plt.close(fig)
 
             # Generate Chart 6: Heatmap — Inter-Item Correlation Matrix
@@ -139,8 +139,8 @@ class ReportBuilder:
                         text_color = "white" if val < 0.2 or val > 0.8 else "black"
                         ax.text(j, i, f"{val:.2f}", ha="center", va="center", color=text_color, fontweight="bold")
                 ax.set_title("Inter-Item Correlation Matrix", pad=20, fontsize=12, fontweight="bold", color="#1B4F72")
-                heatmap_path = os.path.join(tmp, "correlation_heatmap.png")
-                fig.savefig(heatmap_path, dpi=150, bbox_inches="tight")
+                heatmap_path = os.path.join(tmp, "correlation_heatmap.pdf")
+                fig.savefig(heatmap_path, bbox_inches="tight")
                 plt.close(fig)
 
             # Generate Chart 7: Bar Chart — Score Equating Adjustments by Version
@@ -159,8 +159,8 @@ class ReportBuilder:
                     yval = bar.get_height()
                     offset = 0.05 if yval > 0 else -0.15
                     ax.text(bar.get_x() + bar.get_width()/2.0, yval + offset, f"{yval:+.3f}", ha='center', va='bottom' if yval>0 else 'top', fontweight="bold", fontsize=9)
-                equating_path = os.path.join(tmp, "equating_bar.png")
-                fig.savefig(equating_path, dpi=150, bbox_inches="tight")
+                equating_path = os.path.join(tmp, "equating_bar.pdf")
+                fig.savefig(equating_path, bbox_inches="tight")
                 plt.close(fig)
 
             _log("Charts generated successfully.", "INFO")
@@ -403,7 +403,7 @@ class ReportBuilder:
                     "",
                     r"\begin{figure}[H]",
                     r"	\centering",
-                    r"	\includegraphics[width=0.65\textwidth]{correlation_heatmap.png}",
+                    r"	\includegraphics[width=0.65\textwidth]{correlation_heatmap.pdf}",
                     r"	\caption{Heatmap of the Inter-Item Correlation Matrix}",
                     r"\end{figure}",
                 ]
@@ -460,7 +460,7 @@ class ReportBuilder:
                 "",
                 r"\begin{figure}[H]",
                 r"	\centering",
-                r"	\includegraphics[width=0.82\textwidth]{histogram.png}",
+                r"	\includegraphics[width=0.82\textwidth]{histogram.pdf}",
                 r"	\caption{Overall score curve distribution chart}",
                 r"\end{figure}",
                 "",
@@ -495,7 +495,7 @@ class ReportBuilder:
                 "",
                 r"\begin{figure}[H]",
                 r"	\centering",
-                r"	\includegraphics[width=0.82\textwidth]{version_bar.png}",
+                r"	\includegraphics[width=0.82\textwidth]{version_bar.pdf}",
                 r"	\caption{Mean score comparison across exam versions}",
                 r"\end{figure}",
                 "",
@@ -509,7 +509,7 @@ class ReportBuilder:
                 r"\section{Score Distribution by Version (Box Plot)}",
                 r"\begin{figure}[H]",
                 r"	\centering",
-                r"	\includegraphics[width=0.95\textwidth]{version_boxplot.png}",
+                r"	\includegraphics[width=0.95\textwidth]{version_boxplot.pdf}",
                 r"	\caption{Box plot comparing score distribution across exam versions}",
                 r"	\vspace{0.5cm}",
                 r"	\textcolor{medgray}{\textit{*Note: Red horizontal line denotes the overall class mean. Boxes indicate interquartile range (IQR).}}",
@@ -587,7 +587,7 @@ class ReportBuilder:
                 "",
                 r"\begin{figure}[H]",
                 r"	\centering",
-                r"	\includegraphics[width=0.75\textwidth]{item_scatter.png}",
+                r"	\includegraphics[width=0.75\textwidth]{item_scatter.pdf}",
                 r"	\caption{Scatter plot of item difficulty (p-value) vs. discrimination (D)}",
                 r"\end{figure}",
                 "",
