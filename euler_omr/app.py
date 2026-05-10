@@ -52,7 +52,7 @@ class EulerApp(QApplication):
         
         if os.name == 'nt':
             import ctypes
-            myappid = f'{ORG_NAME}.{APP_NAME}.1.1.5'.replace(" ", "")
+            myappid = f'{ORG_NAME}.{APP_NAME}.1.1.6'.replace(" ", "")
             try:
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
             except Exception:
